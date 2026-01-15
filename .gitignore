@@ -4,6 +4,9 @@
 # 一時フォルダ(Claudeとの議論時に使用する)除外
 temp
 
+# 一時ファイル
+tmp*
+
 # Windowsの予約語
 
 CON
