@@ -1,0 +1,33 @@
+[project]
+name = "pmtool"
+version = "0.1.0"
+description = "Project Management Tool for personal use"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+
+dependencies = [
+    "textual>=0.47.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
