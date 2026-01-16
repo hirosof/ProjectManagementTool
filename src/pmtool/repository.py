@@ -546,6 +546,13 @@ class SubProjectRepository:
                 """,
                 (new_name, new_description, now, subproject_id),
             )
+
+            # 親プロジェクトの updated_at を更新
+            cursor.execute(
+                "UPDATE projects SET updated_at = ? WHERE id = ?",
+                (now, row["project_id"]),
+            )
+
             conn.commit()
 
             return SubProject(
@@ -951,6 +958,19 @@ class TaskRepository:
                 """,
                 (new_name, new_description, now, task_id),
             )
+
+            # 親の updated_at を更新
+            if row["subproject_id"] is not None:
+                cursor.execute(
+                    "UPDATE subprojects SET updated_at = ? WHERE id = ?",
+                    (now, row["subproject_id"]),
+                )
+            else:
+                cursor.execute(
+                    "UPDATE projects SET updated_at = ? WHERE id = ?",
+                    (now, row["project_id"]),
+                )
+
             conn.commit()
 
             return Task(
@@ -1069,7 +1089,8 @@ class TaskRepository:
             from .dependencies import DependencyManager
 
             dep_manager = DependencyManager(self.db)
-            bridged = dep_manager.bridge_dependencies(task_id, "task")
+            # 同一トランザクション内で橋渡しを実行
+            bridged = dep_manager.bridge_dependencies(task_id, "task", conn=conn)
 
             # DELETE (依存関係はCASCADEで自動削除)
             cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
@@ -1099,7 +1120,10 @@ class TaskRepository:
 
     def cascade_delete(self, task_id: int, force: bool = False) -> dict:
         """
-        Taskを子SubTaskも含めて連鎖削除 (D6)
+        Taskを子SubTaskも含めて連鎖削除 (D6) - Phase 2/3 で実装予定
+
+        **注意:** この機能は Phase 1 のスコープ外のため、現在は無効化されています。
+        Phase 2 または Phase 3 で正式に実装される予定です。
 
         このメソッドは、Taskとそのすべての子SubTaskを削除します。
         forceフラグがTrueでない場合はエラーになります。
@@ -1120,6 +1144,12 @@ class TaskRepository:
             DeletionError: forceフラグがFalseの場合
             ConstraintViolationError: Taskが存在しない場合
         """
+        raise NotImplementedError(
+            "cascade_delete は Phase 1 のスコープ外です。"
+            "この機能は Phase 2/3 で実装される予定です。"
+        )
+
+        # 以下、既存の実装コードは温存
         if not force:
             raise DeletionError(
                 "連鎖削除にはforce=Trueフラグが必要です。"
@@ -1149,13 +1179,15 @@ class TaskRepository:
 
             # 各SubTaskを橋渡し削除
             for subtask in subtasks:
-                bridged = dep_manager.bridge_dependencies(subtask.id, "subtask")
+                # 同一トランザクション内で橋渡しを実行
+                bridged = dep_manager.bridge_dependencies(subtask.id, "subtask", conn=conn)
                 subtask_bridges.extend(bridged)
                 # SubTask削除 (依存関係はCASCADEで自動削除)
                 cursor.execute("DELETE FROM subtasks WHERE id = ?", (subtask.id,))
 
             # Task自身の依存関係を橋渡し
-            task_bridges = dep_manager.bridge_dependencies(task_id, "task")
+            # 同一トランザクション内で橋渡しを実行
+            task_bridges = dep_manager.bridge_dependencies(task_id, "task", conn=conn)
 
             # Task削除 (依存関係はCASCADEで自動削除)
             cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
@@ -1413,6 +1445,13 @@ class SubTaskRepository:
                 """,
                 (new_name, new_description, now, subtask_id),
             )
+
+            # 親Taskの updated_at を更新
+            cursor.execute(
+                "UPDATE tasks SET updated_at = ? WHERE id = ?",
+                (now, row["task_id"]),
+            )
+
             conn.commit()
 
             return SubTask(
@@ -1509,7 +1548,8 @@ class SubTaskRepository:
             from .dependencies import DependencyManager
 
             dep_manager = DependencyManager(self.db)
-            bridged = dep_manager.bridge_dependencies(subtask_id, "subtask")
+            # 同一トランザクション内で橋渡しを実行
+            bridged = dep_manager.bridge_dependencies(subtask_id, "subtask", conn=conn)
 
             # DELETE (依存関係はCASCADEで自動削除)
             cursor.execute("DELETE FROM subtasks WHERE id = ?", (subtask_id,))

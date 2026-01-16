@@ -202,28 +202,6 @@ def main():
         assert t5.id in t3_deps_after["successors"]
         print(f"  → Task3の依存関係(橋渡し後): {t3_deps_after}")
 
-        # 連鎖削除テスト
-        t6 = task_repo.create(p2.id, "タスク6")
-        st3 = subtask_repo.create(t6.id, "サブタスク3")
-        st4 = subtask_repo.create(t6.id, "サブタスク4")
-
-        print("✓ Task6を連鎖削除 (子SubTask含む)...")
-        result = task_repo.cascade_delete(t6.id, force=True)
-        print(f"  → 削除結果: {result}")
-        assert len(result["subtasks_deleted"]) == 2
-
-        # forceフラグなしの連鎖削除はエラー
-        t7 = task_repo.create(p2.id, "タスク7")
-        subtask_repo.create(t7.id, "サブタスク5")
-
-        print("✓ force=Falseで連鎖削除を試行...")
-        try:
-            task_repo.cascade_delete(t7.id, force=False)
-            print("  ✗ エラー: forceフラグチェックが機能していません")
-            return 1
-        except DeletionError as e:
-            print(f"  → forceフラグを正しく検出: {e}")
-
         # ========================================
         # 完了
         # ========================================

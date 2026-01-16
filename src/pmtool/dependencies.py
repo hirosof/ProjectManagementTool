@@ -100,7 +100,7 @@ class DependencyManager:
                 )
 
             # 循環検出 (DAG検証)
-            self.validate_no_cycle(predecessor_id, successor_id, "task")
+            self.validate_no_cycle(predecessor_id, successor_id, "task", conn=conn)
 
             # INSERT
             now = _now()
@@ -189,7 +189,7 @@ class DependencyManager:
                 )
 
             # 循環検出 (DAG検証)
-            self.validate_no_cycle(predecessor_id, successor_id, "subtask")
+            self.validate_no_cycle(predecessor_id, successor_id, "subtask", conn=conn)
 
             # INSERT
             now = _now()
@@ -388,7 +388,11 @@ class DependencyManager:
         return {"predecessors": predecessors, "successors": successors}
 
     def validate_no_cycle(
-        self, predecessor_id: int, successor_id: int, dep_type: str
+        self,
+        predecessor_id: int,
+        successor_id: int,
+        dep_type: str,
+        conn: Optional[sqlite3.Connection] = None,
     ) -> None:
         """
         新しい依存関係が循環を作らないことを検証
@@ -397,12 +401,13 @@ class DependencyManager:
             predecessor_id: 先行ノードID
             successor_id: 後続ノードID
             dep_type: 依存関係タイプ ('task' または 'subtask')
+            conn: 既存のコネクション (Noneの場合は新規作成)
 
         Raises:
             CyclicDependencyError: 循環依存が発生する場合
         """
-        # グラフを構築
-        graph = self._build_dependency_graph(dep_type)
+        # グラフを構築 (同一connを渡す)
+        graph = self._build_dependency_graph(dep_type, conn=conn)
 
         # 新しいエッジ (predecessor → successor) を追加した場合に
         # successor → predecessor へのパスが存在するかチェック
@@ -412,17 +417,24 @@ class DependencyManager:
                 f"依存関係 {predecessor_id} → {successor_id} を追加すると循環依存が発生します"
             )
 
-    def _build_dependency_graph(self, dep_type: str) -> dict[int, list[int]]:
+    def _build_dependency_graph(
+        self,
+        dep_type: str,
+        conn: Optional[sqlite3.Connection] = None,
+    ) -> dict[int, list[int]]:
         """
         依存関係グラフを構築
 
         Args:
             dep_type: 依存関係タイプ ('task' または 'subtask')
+            conn: 既存のコネクション (Noneの場合は新規作成)
 
         Returns:
             dict: 隣接リスト表現のグラフ {node_id: [successor_ids]}
         """
-        conn = self.db.connect()
+        if conn is None:
+            conn = self.db.connect()
+
         cursor = conn.cursor()
 
         if dep_type == "task":
@@ -486,7 +498,10 @@ class DependencyManager:
         return False
 
     def bridge_dependencies(
-        self, node_id: int, dep_type: str
+        self,
+        node_id: int,
+        dep_type: str,
+        conn: Optional[sqlite3.Connection] = None,
     ) -> list[tuple[int, int]]:
         """
         ノード削除時に依存関係を橋渡しする
@@ -497,6 +512,7 @@ class DependencyManager:
         Args:
             node_id: 削除対象ノードID
             dep_type: 依存関係タイプ ('task' または 'subtask')
+            conn: 既存のコネクション (Noneの場合は新規作成)
 
         Returns:
             list[tuple[int, int]]: 作成された橋渡し依存関係のリスト [(pred_id, succ_id), ...]
@@ -504,7 +520,12 @@ class DependencyManager:
         Raises:
             CyclicDependencyError: 橋渡しによって循環が発生する場合
         """
-        conn = self.db.connect()
+        # connが渡されていればそれを使用、なければ新規取得
+        own_conn = False
+        if conn is None:
+            conn = self.db.connect()
+            own_conn = True
+
         cursor = conn.cursor()
 
         table_name = (
@@ -544,7 +565,7 @@ class DependencyManager:
 
                     # 循環検出 (橋渡し後のグラフで循環が発生しないかチェック)
                     try:
-                        self.validate_no_cycle(pred, succ, dep_type)
+                        self.validate_no_cycle(pred, succ, dep_type, conn=conn)
                     except CyclicDependencyError:
                         # この組み合わせは循環を作るのでスキップ
                         continue
@@ -560,9 +581,13 @@ class DependencyManager:
                     )
                     bridged.append((pred, succ))
 
-            conn.commit()
+            # 自分でコネクションを作成した場合のみcommit
+            if own_conn:
+                conn.commit()
+
             return bridged
 
         except Exception as e:
-            conn.rollback()
+            if own_conn:
+                conn.rollback()
             raise
