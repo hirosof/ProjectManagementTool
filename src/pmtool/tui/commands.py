@@ -10,6 +10,7 @@ from rich.console import Console
 
 from ..database import Database
 from ..dependencies import DependencyManager
+from ..doctor import Doctor
 from ..repository import (
     ProjectRepository,
     SubProjectRepository,
@@ -388,3 +389,33 @@ def _deps_list(dep_manager: DependencyManager, entity_type: str, entity_id: int)
         successors = [st for st in successors if st is not None]
 
         display.show_dependencies("SubTask", entity_id, predecessors, successors)
+
+
+# ===== doctor/check コマンド =====
+
+
+def handle_doctor(db: Database, args: Namespace) -> None:
+    """
+    doctor/checkコマンドの処理（データ整合性チェック）
+
+    Args:
+        db: Database インスタンス
+        args: コマンドライン引数
+    """
+    doctor = Doctor(db)
+
+    console.print("[bold cyan]データベース整合性チェック実行中...[/bold cyan]\n")
+
+    # チェック実行
+    report = doctor.check_all()
+
+    # レポート表示
+    display.show_doctor_report(report)
+
+    # 結果サマリー
+    if report.is_healthy:
+        console.print("\n[bold green]OK: データベースは正常です[/bold green]")
+    else:
+        console.print(
+            f"\n[bold red]NG: {report.error_count}件のエラーが検出されました[/bold red]"
+        )

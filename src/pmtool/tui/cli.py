@@ -113,6 +113,11 @@ def create_parser() -> argparse.ArgumentParser:
     deps_list.add_argument("entity", choices=["task", "subtask"])
     deps_list.add_argument("id", type=int, help="エンティティID")
 
+    # doctor/check コマンド
+    doctor_parser = subparsers.add_parser(
+        "doctor", help="データベース整合性チェック", aliases=["check"]
+    )
+
     return parser
 
 
@@ -147,24 +152,26 @@ def main() -> None:
             commands.handle_status(db, args)
         elif args.command == "deps":
             commands.handle_deps(db, args)
+        elif args.command in ("doctor", "check"):
+            commands.handle_doctor(db, args)
         else:
             console.print(f"[red]エラー: 未知のコマンド '{args.command}'[/red]")
             sys.exit(1)
 
     except ValidationError as e:
-        console.print(f"[red]❌ 入力エラー: {e}[/red]")
+        console.print(f"[red]ERROR: 入力エラー: {e}[/red]")
         sys.exit(1)
     except ConstraintViolationError as e:
-        console.print(f"[red]❌ 制約違反: {e}[/red]")
+        console.print(f"[red]ERROR: 制約違反: {e}[/red]")
         sys.exit(1)
     except CyclicDependencyError as e:
         # レビュー指摘B-6対応: 循環検出エラーの表示強化
-        console.print(f"[red]❌ 循環依存エラー: {e}[/red]")
+        console.print(f"[red]ERROR: 循環依存エラー: {e}[/red]")
         console.print("[yellow]ヒント: この依存関係を追加すると循環が発生します。[/yellow]")
         sys.exit(1)
     except StatusTransitionError as e:
         # レビュー指摘A-3対応: DONE遷移失敗時の理由明示
-        console.print(f"[red]❌ ステータス遷移エラー: {e}[/red]")
+        console.print(f"[red]ERROR: ステータス遷移エラー: {e}[/red]")
 
         # エラーメッセージから原因を判定
         error_msg = str(e)
@@ -183,16 +190,16 @@ def main() -> None:
         sys.exit(1)
     except DeletionError as e:
         # レビュー指摘B-5対応: ChildExists系エラーの案内強化
-        console.print(f"[red]❌ 削除エラー: {e}[/red]")
+        console.print(f"[red]ERROR: 削除エラー: {e}[/red]")
         console.print("[yellow]ヒント: 子ノードが存在する場合の対処方法:[/yellow]")
         console.print("  1. 先に子ノードを削除してから、親を削除する")
         console.print("  2. Task/SubTaskの場合: --bridge オプションで橋渡し削除を使用する")
         sys.exit(1)
     except PMToolError as e:
-        console.print(f"[red]❌ エラー: {e}[/red]")
+        console.print(f"[red]ERROR: エラー: {e}[/red]")
         sys.exit(1)
     except Exception as e:
-        console.print(f"[red]❌ 予期しないエラー: {e}[/red]")
+        console.print(f"[red]ERROR: 予期しないエラー: {e}[/red]")
         import traceback
 
         traceback.print_exc()

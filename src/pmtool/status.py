@@ -10,7 +10,7 @@ from datetime import datetime
 
 from .database import Database
 from .dependencies import DependencyManager
-from .exceptions import StatusTransitionError
+from .exceptions import StatusTransitionError, StatusTransitionFailureReason
 from .models import SubTask, Task
 from .repository import SubTaskRepository, TaskRepository
 from .validators import validate_status
@@ -64,13 +64,19 @@ class StatusManager:
         # Taskの存在確認
         task = self.task_repo.get_by_id(task_id)
         if not task:
-            raise StatusTransitionError(f"TaskID {task_id} は存在しません")
+            raise StatusTransitionError(
+                f"TaskID {task_id} は存在しません",
+                reason=StatusTransitionFailureReason.NODE_NOT_FOUND,
+                details={"node_id": task_id, "node_type": "task"},
+            )
 
         # DONE遷移の場合、前提条件をチェック
         if new_status == "DONE":
-            is_valid, error_message = self.validate_done_transition(task_id, "task")
+            is_valid, error_message, reason, details = self.validate_done_transition(
+                task_id, "task"
+            )
             if not is_valid:
-                raise StatusTransitionError(error_message)
+                raise StatusTransitionError(error_message, reason=reason, details=details)
 
         # ステータス更新
         conn = self.db.connect()
@@ -113,15 +119,19 @@ class StatusManager:
         # SubTaskの存在確認
         subtask = self.subtask_repo.get_by_id(subtask_id)
         if not subtask:
-            raise StatusTransitionError(f"SubTaskID {subtask_id} は存在しません")
+            raise StatusTransitionError(
+                f"SubTaskID {subtask_id} は存在しません",
+                reason=StatusTransitionFailureReason.NODE_NOT_FOUND,
+                details={"node_id": subtask_id, "node_type": "subtask"},
+            )
 
         # DONE遷移の場合、前提条件をチェック
         if new_status == "DONE":
-            is_valid, error_message = self.validate_done_transition(
+            is_valid, error_message, reason, details = self.validate_done_transition(
                 subtask_id, "subtask"
             )
             if not is_valid:
-                raise StatusTransitionError(error_message)
+                raise StatusTransitionError(error_message, reason=reason, details=details)
 
         # ステータス更新
         conn = self.db.connect()
@@ -146,7 +156,7 @@ class StatusManager:
 
     def validate_done_transition(
         self, node_id: int, node_type: str
-    ) -> tuple[bool, str]:
+    ) -> tuple[bool, str, StatusTransitionFailureReason | None, dict]:
         """
         DONE遷移の前提条件を検証 (D3)
 
@@ -155,26 +165,41 @@ class StatusManager:
             node_type: ノードタイプ ('task' または 'subtask')
 
         Returns:
-            tuple[bool, str]: (検証結果, エラーメッセージ)
-                - True, "" : 遷移可能
-                - False, "理由" : 遷移不可能
+            tuple[bool, str, StatusTransitionFailureReason | None, dict]:
+                (検証結果, エラーメッセージ, reason code, 詳細情報)
+                - True, "", None, {} : 遷移可能
+                - False, "理由", reason, details : 遷移不可能
         """
         # すべての先行ノードがDONEであることを確認
-        if not self._all_predecessors_done(node_id, node_type):
+        incomplete_predecessors = self._get_incomplete_predecessors(node_id, node_type)
+        if incomplete_predecessors:
             return (
                 False,
                 f"すべての先行{node_type}がDONEでないため、DONEに遷移できません",
+                StatusTransitionFailureReason.PREREQUISITE_NOT_DONE,
+                {
+                    "node_id": node_id,
+                    "node_type": node_type,
+                    "incomplete_predecessors": incomplete_predecessors,
+                },
             )
 
         # Taskの場合、すべての子SubTaskがDONEであることを確認
         if node_type == "task":
-            if not self._all_child_subtasks_done(node_id):
+            incomplete_children = self._get_incomplete_child_subtasks(node_id)
+            if incomplete_children:
                 return (
                     False,
                     "すべての子SubTaskがDONEでないため、TaskをDONEに遷移できません",
+                    StatusTransitionFailureReason.CHILD_NOT_DONE,
+                    {
+                        "node_id": node_id,
+                        "node_type": node_type,
+                        "incomplete_children": incomplete_children,
+                    },
                 )
 
-        return (True, "")
+        return (True, "", None, {})
 
     def _all_predecessors_done(self, node_id: int, node_type: str) -> bool:
         """
@@ -229,3 +254,77 @@ class StatusManager:
                 return False
 
         return True
+
+    def _get_incomplete_predecessors(
+        self, node_id: int, node_type: str
+    ) -> list[dict]:
+        """
+        未完了の先行ノードのリストを取得
+
+        Args:
+            node_id: ノードID
+            node_type: ノードタイプ ('task' または 'subtask')
+
+        Returns:
+            list[dict]: 未完了の先行ノード情報のリスト
+                例: [{"id": 3, "name": "先行タスク", "status": "IN_PROGRESS"}, ...]
+        """
+        incomplete = []
+
+        if node_type == "task":
+            deps = self.dep_manager.get_task_dependencies(node_id)
+            predecessors = deps["predecessors"]
+
+            for pred_id in predecessors:
+                pred_task = self.task_repo.get_by_id(pred_id)
+                if pred_task and pred_task.status != "DONE":
+                    incomplete.append(
+                        {
+                            "id": pred_task.id,
+                            "name": pred_task.name,
+                            "status": pred_task.status,
+                        }
+                    )
+
+        elif node_type == "subtask":
+            deps = self.dep_manager.get_subtask_dependencies(node_id)
+            predecessors = deps["predecessors"]
+
+            for pred_id in predecessors:
+                pred_subtask = self.subtask_repo.get_by_id(pred_id)
+                if pred_subtask and pred_subtask.status != "DONE":
+                    incomplete.append(
+                        {
+                            "id": pred_subtask.id,
+                            "name": pred_subtask.name,
+                            "status": pred_subtask.status,
+                        }
+                    )
+
+        return incomplete
+
+    def _get_incomplete_child_subtasks(self, task_id: int) -> list[dict]:
+        """
+        未完了の子SubTaskのリストを取得
+
+        Args:
+            task_id: TaskID
+
+        Returns:
+            list[dict]: 未完了の子SubTask情報のリスト
+                例: [{"id": 5, "name": "子SubTask", "status": "NOT_STARTED"}, ...]
+        """
+        incomplete = []
+        subtasks = self.subtask_repo.get_by_task(task_id)
+
+        for subtask in subtasks:
+            if subtask.status != "DONE":
+                incomplete.append(
+                    {
+                        "id": subtask.id,
+                        "name": subtask.name,
+                        "status": subtask.status,
+                    }
+                )
+
+        return incomplete

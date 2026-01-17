@@ -9,6 +9,7 @@ from rich.table import Table
 from rich.tree import Tree
 
 from ..database import Database
+from ..doctor import DoctorReport, IssueLevel
 from ..models import Project
 from ..repository import (
     ProjectRepository,
@@ -179,3 +180,36 @@ def show_dependencies(
         console.print("\n  [dim]後続ノードなし[/dim]")
 
     console.print()
+
+
+def show_doctor_report(report: DoctorReport) -> None:
+    """
+    doctor/checkレポートを表示
+
+    Args:
+        report: DoctorReport インスタンス
+    """
+    # サマリー表示
+    console.print("[bold]===  Doctor Check Report ===[/bold]\n")
+    console.print(f"[bold]Summary:[/bold]")
+    console.print(f"  Errors:   [red]{report.error_count}[/red]")
+    console.print(f"  Warnings: [yellow]{report.warning_count}[/yellow]")
+    console.print()
+
+    # エラー表示
+    if report.errors:
+        console.print("[bold red]Errors:[/bold red]")
+        for issue in report.errors:
+            console.print(f"  [red][{issue.code}] {issue.message}[/red]")
+        console.print()
+
+    # 警告表示
+    if report.warnings:
+        console.print("[bold yellow]Warnings:[/bold yellow]")
+        for issue in report.warnings:
+            console.print(f"  [yellow][{issue.code}] {issue.message}[/yellow]")
+        console.print()
+
+    # 正常時のメッセージ
+    if report.is_healthy and report.warning_count == 0:
+        console.print("[dim]問題は検出されませんでした[/dim]")
