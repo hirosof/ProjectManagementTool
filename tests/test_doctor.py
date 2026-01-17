@@ -178,3 +178,43 @@ def test_doctor_detect_subproject_nesting(temp_db: Database):
     assert report.warning_count > 0
     assert any(issue.code == "NEST001" for issue in report.warnings)
     assert report.is_healthy  # Warningのみなので、is_healthyはTrue
+
+
+def test_doctor_detect_order_index_gap(temp_db: Database):
+    """order_index欠番を検出できること（Warning）"""
+    # リポジトリ作成
+    project_repo = ProjectRepository(temp_db)
+    subproject_repo = SubProjectRepository(temp_db)
+
+    # Project作成
+    project = project_repo.create("TestProject", "Description")
+
+    # SubProject3つ作成（order_index=0,1,2）
+    sp1 = subproject_repo.create(project.id, "SP1", None, "Description")
+    sp2 = subproject_repo.create(project.id, "SP2", None, "Description")
+    sp3 = subproject_repo.create(project.id, "SP3", None, "Description")
+
+    # 正常な状態ではWarningなし
+    doctor = Doctor(temp_db)
+    report = doctor.check_all()
+    assert not any(issue.code.startswith("ORDER_W") for issue in report.warnings)
+
+    # 手動でSP2を削除して欠番を作成（order_index=0,2となる）
+    conn = temp_db.connect()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("PRAGMA foreign_keys = OFF")
+        cursor.execute("DELETE FROM subprojects WHERE id = ?", (sp2.id,))
+        conn.commit()
+
+        # doctor/checkを実行
+        report = doctor.check_all()
+
+        # ORDER_W001 Warning が検出されること
+        assert report.warning_count > 0
+        assert any(issue.code == "ORDER_W001" for issue in report.warnings)
+        assert report.is_healthy  # Warningのみなので、is_healthyはTrue
+
+    finally:
+        cursor.execute("PRAGMA foreign_keys = ON")
+        conn.commit()

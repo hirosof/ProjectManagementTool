@@ -599,6 +599,78 @@ class Doctor:
                     },
                 )
             )
+
+        # --- 欠番検出（WARNING） ---
+
+        # SubProject の order_index 欠番チェック
+        cursor.execute("""
+            SELECT project_id, COALESCE(parent_subproject_id, -1) as parent_id,
+                   COUNT(*) as total_count, MAX(order_index) as max_index
+            FROM subprojects
+            GROUP BY project_id, parent_subproject_id
+            HAVING max_index > (total_count - 1)
+        """)
+        for row in cursor.fetchall():
+            parent_info = f"parent_subproject_id={row[1]}" if row[1] != -1 else "parent_subproject_id=NULL"
+            issues.append(
+                Issue(
+                    level=IssueLevel.WARNING,
+                    code="ORDER_W001",
+                    message=f"Project {row[0]} ({parent_info}) 内で order_index に欠番があります（件数={row[2]}, 最大={row[3]}）",
+                    details={
+                        "project_id": row[0],
+                        "parent_subproject_id": row[1] if row[1] != -1 else None,
+                        "total_count": row[2],
+                        "max_index": row[3],
+                    },
+                )
+            )
+
+        # Task の order_index 欠番チェック
+        cursor.execute("""
+            SELECT project_id, COALESCE(subproject_id, -1) as sp_id,
+                   COUNT(*) as total_count, MAX(order_index) as max_index
+            FROM tasks
+            GROUP BY project_id, subproject_id
+            HAVING max_index > (total_count - 1)
+        """)
+        for row in cursor.fetchall():
+            context_info = f"SubProject {row[1]}" if row[1] != -1 else f"Project {row[0]} 直下"
+            issues.append(
+                Issue(
+                    level=IssueLevel.WARNING,
+                    code="ORDER_W002",
+                    message=f"{context_info} 内で order_index に欠番があります（件数={row[2]}, 最大={row[3]}）",
+                    details={
+                        "project_id": row[0],
+                        "subproject_id": row[1] if row[1] != -1 else None,
+                        "total_count": row[2],
+                        "max_index": row[3],
+                    },
+                )
+            )
+
+        # SubTask の order_index 欠番チェック
+        cursor.execute("""
+            SELECT task_id, COUNT(*) as total_count, MAX(order_index) as max_index
+            FROM subtasks
+            GROUP BY task_id
+            HAVING max_index > (total_count - 1)
+        """)
+        for row in cursor.fetchall():
+            issues.append(
+                Issue(
+                    level=IssueLevel.WARNING,
+                    code="ORDER_W003",
+                    message=f"Task {row[0]} 内で order_index に欠番があります（件数={row[1]}, 最大={row[2]}）",
+                    details={
+                        "task_id": row[0],
+                        "total_count": row[1],
+                        "max_index": row[2],
+                    },
+                )
+            )
+
         return issues
 
     def _check_subproject_nesting(self) -> List[Issue]:

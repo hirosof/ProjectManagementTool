@@ -170,22 +170,27 @@ def main() -> None:
         console.print("[yellow]ヒント: この依存関係を追加すると循環が発生します。[/yellow]")
         sys.exit(1)
     except StatusTransitionError as e:
-        # レビュー指摘A-3対応: DONE遷移失敗時の理由明示
+        # P0-02: reason code 優先の判定（文字列判定から脱却）
         console.print(f"[red]ERROR: ステータス遷移エラー: {e}[/red]")
 
-        # エラーメッセージから原因を判定
-        error_msg = str(e)
-        if "先行" in error_msg:
+        # reason code で分岐
+        from ..exceptions import StatusTransitionFailureReason
+
+        if e.reason == StatusTransitionFailureReason.PREREQUISITE_NOT_DONE:
             console.print("[yellow]原因: 先行ノードが未完了です[/yellow]")
             console.print(
                 "[dim]ヒント: 先行ノードのステータスをDONEにしてから再度お試しください[/dim]"
             )
-        elif "子SubTask" in error_msg:
+        elif e.reason == StatusTransitionFailureReason.CHILD_NOT_DONE:
             console.print("[yellow]原因: 子SubTaskが未完了です[/yellow]")
             console.print(
                 "[dim]ヒント: すべての子SubTaskのステータスをDONEにしてから再度お試しください[/dim]"
             )
+        elif e.reason == StatusTransitionFailureReason.NODE_NOT_FOUND:
+            console.print("[yellow]原因: 対象ノードが存在しません[/yellow]")
+            console.print("[dim]ヒント: IDを確認してください[/dim]")
         else:
+            # reason が None または INVALID_TRANSITION の場合
             console.print("[yellow]ヒント: DONE遷移条件を満たしていません[/yellow]")
         sys.exit(1)
     except DeletionError as e:
