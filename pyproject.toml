@@ -1,13 +1,14 @@
 [project]
 name = "pmtool"
-version = "0.1.0"
-description = "Project Management Tool for personal use"
+version = "0.2.0"
+description = "階層型プロジェクト管理ツール - DAG依存関係管理とステータス制御を備えたプロジェクト・タスク管理システム"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 
 dependencies = [
-    "textual>=0.47.0",
+    "rich>=13.0.0",
+    "prompt_toolkit>=3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -15,6 +16,9 @@ dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
 ]
+
+[project.scripts]
+pmtool = "pmtool.tui.cli:main"
 
 [build-system]
 requires = ["setuptools>=68.0"]
