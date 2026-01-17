@@ -178,7 +178,7 @@ def handle_delete(db: Database, args: Namespace) -> None:
     deleteコマンドの処理
 
     標準削除または橋渡し削除を実行する。
-    削除前に確認プロンプトを表示する。
+    --dry-run が指定された場合は影響範囲のみを表示する。
 
     Args:
         db: Database インスタンス
@@ -186,7 +186,8 @@ def handle_delete(db: Database, args: Namespace) -> None:
     """
     entity_type = args.entity
     entity_id = args.id
-    use_bridge = args.bridge
+    use_bridge = getattr(args, "bridge", False)
+    dry_run = getattr(args, "dry_run", False)
 
     # --bridgeの適用範囲チェック（レビュー指摘A-1対応）
     if use_bridge and entity_type in ("project", "subproject"):
@@ -194,6 +195,11 @@ def handle_delete(db: Database, args: Namespace) -> None:
             f"[red]エラー: --bridge オプションは task/subtask でのみ使用できます。[/red]\n"
             f"project/subproject には依存関係がないため、橋渡し削除は適用されません。"
         )
+        return
+
+    # dry-run の場合は影響範囲を表示して終了
+    if dry_run:
+        _show_delete_impact(db, entity_type, entity_id, use_bridge)
         return
 
     # 確認プロンプト（レビュー指摘A-2対応）
@@ -219,6 +225,136 @@ def handle_delete(db: Database, args: Namespace) -> None:
         _delete_task(db, entity_id, use_bridge)
     elif entity_type == "subtask":
         _delete_subtask(db, entity_id, use_bridge)
+
+
+def _show_delete_impact(
+    db: Database, entity_type: str, entity_id: int, use_bridge: bool
+) -> None:
+    """
+    削除影響範囲を表示する（dry-run）
+
+    トランザクション内で削除処理を実行し、影響範囲を収集してから rollback する。
+
+    Args:
+        db: Database インスタンス
+        entity_type: 削除対象のエンティティ種別
+        entity_id: 削除対象のエンティティID
+        use_bridge: 橋渡し削除かどうか
+    """
+    console.print(
+        f"\n[bold cyan]=== Dry-run: Delete {entity_type.title()} {entity_id} ===[/bold cyan]\n"
+    )
+
+    # トランザクション開始
+    conn = db.connect()
+    cursor = conn.cursor()
+
+    try:
+        # 削除前の件数を取得
+        before_counts = _count_entities(cursor)
+        before_deps = _count_dependencies(cursor)
+
+        # 削除処理を実行（トランザクション内）
+        if entity_type == "project":
+            _delete_project_in_transaction(db, entity_id, conn)
+        elif entity_type == "subproject":
+            _delete_subproject_in_transaction(db, entity_id, conn)
+        elif entity_type == "task":
+            _delete_task_in_transaction(db, entity_id, use_bridge, conn)
+        elif entity_type == "subtask":
+            _delete_subtask_in_transaction(db, entity_id, use_bridge, conn)
+
+        # 削除後の件数を取得
+        after_counts = _count_entities(cursor)
+        after_deps = _count_dependencies(cursor)
+
+        # 差分を計算して表示
+        console.print("[bold]削除対象:[/bold]")
+        for entity, before in before_counts.items():
+            after = after_counts[entity]
+            diff = before - after
+            if diff > 0:
+                console.print(f"  {entity}: {diff}件")
+
+        if any(before_counts[k] - after_counts[k] > 0 for k in before_counts):
+            console.print("\n[bold]削除される依存関係:[/bold]")
+            task_dep_diff = before_deps["task"] - after_deps["task"]
+            subtask_dep_diff = before_deps["subtask"] - after_deps["subtask"]
+            if task_dep_diff > 0:
+                console.print(f"  Task依存: {task_dep_diff}件")
+            if subtask_dep_diff > 0:
+                console.print(f"  SubTask依存: {subtask_dep_diff}件")
+
+        console.print(
+            "\n[yellow]※ これは dry-run です。実際には削除されません。[/yellow]"
+        )
+        console.print("[dim]実行する場合は --dry-run を外してください。[/dim]")
+
+    finally:
+        # 必ず rollback（dry-run なので変更を破棄）
+        conn.rollback()
+
+
+def _count_entities(cursor) -> dict:
+    """現在のエンティティ件数を取得"""
+    counts = {}
+    cursor.execute("SELECT COUNT(*) FROM projects")
+    counts["Project"] = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM subprojects")
+    counts["SubProject"] = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM tasks")
+    counts["Task"] = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM subtasks")
+    counts["SubTask"] = cursor.fetchone()[0]
+    return counts
+
+
+def _count_dependencies(cursor) -> dict:
+    """現在の依存関係件数を取得"""
+    counts = {}
+    cursor.execute("SELECT COUNT(*) FROM task_dependencies")
+    counts["task"] = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM subtask_dependencies")
+    counts["subtask"] = cursor.fetchone()[0]
+    return counts
+
+
+def _delete_project_in_transaction(
+    db: Database, project_id: int, conn
+) -> None:
+    """Project削除処理（トランザクション内）"""
+    repo = ProjectRepository(db)
+    repo.delete(project_id, conn=conn)
+
+
+def _delete_subproject_in_transaction(
+    db: Database, subproject_id: int, conn
+) -> None:
+    """SubProject削除処理（トランザクション内）"""
+    repo = SubProjectRepository(db)
+    repo.delete(subproject_id, conn=conn)
+
+
+def _delete_task_in_transaction(
+    db: Database, task_id: int, use_bridge: bool, conn
+) -> None:
+    """Task削除処理（トランザクション内）"""
+    repo = TaskRepository(db)
+    if use_bridge:
+        repo.delete_with_bridge(task_id, conn=conn)
+    else:
+        repo.delete(task_id, conn=conn)
+
+
+def _delete_subtask_in_transaction(
+    db: Database, subtask_id: int, use_bridge: bool, conn
+) -> None:
+    """SubTask削除処理（トランザクション内）"""
+    repo = SubTaskRepository(db)
+    if use_bridge:
+        repo.delete_with_bridge(subtask_id, conn=conn)
+    else:
+        repo.delete(subtask_id, conn=conn)
 
 
 def _delete_project(db: Database, project_id: int) -> None:

@@ -71,6 +71,11 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="依存関係の橋渡し削除（Task/SubTaskのみ有効）",
     )
+    delete_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="削除を実行せず、影響範囲のみを表示",
+    )
 
     # status コマンド
     status_parser = subparsers.add_parser("status", help="ステータス変更")
