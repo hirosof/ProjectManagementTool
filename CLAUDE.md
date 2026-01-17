@@ -16,7 +16,7 @@
 - DAG（有向非循環グラフ）制約による安全な依存関係管理
 - ステータス管理による作業フローの可視化と制御
 
-**現在のフェーズ:** Phase 1 完了（フィードバック対応済み）
+**現在のフェーズ:** Phase 2 完了（レビュー承認済み）
 
 ## 技術スタック
 
@@ -27,7 +27,8 @@
 - SQLite3（外部キー制約、トリガー機能を活用）
 
 **ライブラリ:**
-- 標準ライブラリのみ（sqlite3, dataclasses, datetime）
+- Phase 1: 標準ライブラリのみ（sqlite3, dataclasses, datetime）
+- Phase 2: rich>=13.0.0, prompt_toolkit>=3.0.0
 
 **ツール:**
 - Claude Code
@@ -38,16 +39,24 @@
 ```
 ProjectManagementTool/
 ├── src/pmtool/              # ソースコード
-│   ├── database.py          # DB接続・初期化
-│   ├── models.py            # エンティティモデル（dataclass）
-│   ├── repository.py        # CRUD操作（Project, SubProject, Task, SubTask）
-│   ├── dependencies.py      # 依存関係管理・DAG検証
-│   ├── status.py            # ステータス管理
-│   ├── validators.py        # バリデーション
-│   └── exceptions.py        # カスタム例外
+│   ├── database.py          # DB接続・初期化（Phase 1）
+│   ├── models.py            # エンティティモデル（dataclass）（Phase 1）
+│   ├── repository.py        # CRUD操作（Project, SubProject, Task, SubTask）（Phase 1）
+│   ├── dependencies.py      # 依存関係管理・DAG検証（Phase 1）
+│   ├── status.py            # ステータス管理（Phase 1）
+│   ├── validators.py        # バリデーション（Phase 1）
+│   ├── exceptions.py        # カスタム例外（Phase 1）
+│   └── tui/                 # TUIインターフェース（Phase 2）
+│       ├── __init__.py      # tuiパッケージ初期化
+│       ├── formatters.py    # ステータスフォーマット
+│       ├── input.py         # 対話的入力処理
+│       ├── display.py       # Rich表示ロジック
+│       ├── cli.py           # CLIエントリーポイント
+│       └── commands.py      # コマンドハンドラ
 ├── scripts/                 # ユーティリティスクリプト
 │   ├── init_db.sql          # DB初期化SQL
-│   └── verify_phase1.py     # Phase 1 検証スクリプト
+│   ├── verify_phase1.py     # Phase 1 検証スクリプト
+│   └── verify_phase2.py     # Phase 2 検証スクリプト
 ├── docs/                    # ドキュメント
 │   ├── README.md            # ドキュメント構造ガイド
 │   ├── specifications/      # 実装仕様書
@@ -176,7 +185,8 @@ ProjectManagementTool/
 4. **段階的な実装**
    - 小さなステップで実装し、各ステップで動作確認
 5. **検証**
-   - `scripts/verify_phase1.py` で動作確認
+   - Phase 1: `scripts/verify_phase1.py` で動作確認
+   - Phase 2: `scripts/verify_phase2.py` で動作確認
    - 必要に応じて新しいテストケースを追加
 
 ### 避けるべきこと
@@ -189,69 +199,111 @@ ProjectManagementTool/
 
 ### 重要なファイル
 
+**仕様・設計:**
 - **`docs/specifications/プロジェクト管理ツール_ClaudeCode仕様書.md`** - プロジェクト全体の仕様
 - **`docs/design/DB設計書_v2.1_最終版.md`** - データベース設計の詳細
 - **`docs/design/実装方針確定メモ.md`** - 実装方針の決定事項
+- **`docs/design/Phase2_TUI設計書.md`** - Phase 2 TUI設計書
+
+**Phase 1（ビジネスロジック層）:**
 - **`src/pmtool/repository.py`** - CRUD操作の実装（1300行超の中核ファイル）
 - **`src/pmtool/dependencies.py`** - 依存関係管理・DAG検証
 - **`src/pmtool/status.py`** - ステータス管理ロジック
 
+**Phase 2（TUI層）:**
+- **`src/pmtool/tui/cli.py`** - CLIエントリーポイント（argparse）
+- **`src/pmtool/tui/commands.py`** - コマンドハンドラ（list, show, add, delete, status, deps）
+- **`src/pmtool/tui/display.py`** - Rich表示ロジック（テーブル、ツリー、依存関係）
+
 ## セットアップ手順
 
 ```bash
+# 依存ライブラリのインストール
+pip install -e .
+
 # データベース初期化
 python -c "from src.pmtool.database import Database; db = Database('data/pmtool.db'); db.initialize('scripts/init_db.sql', force=True)"
 
 # Phase 1 検証スクリプト実行
 python scripts/verify_phase1.py
+
+# Phase 2 検証スクリプト実行
+python scripts/verify_phase2.py
+
+# CLIコマンド実行例
+pmtool --help
+pmtool list projects
+pmtool add project --name "テストプロジェクト" --desc "説明"
+pmtool show project 1
 ```
 
 期待される出力：すべてのテストが成功（✓ マーク）
 
-## 実装済み機能（Phase 1）
+## 実装済み機能
 
-### エンティティ管理
+### Phase 1: ビジネスロジック層
+
+#### エンティティ管理
 - **4階層構造**: Project → SubProject → Task → SubTask
 - **CRUD操作**: 各階層でのCreate/Read/Update/Delete
 - **order_index管理**: 表示順序の自動管理
 - **updated_at伝播**: 子の変更が親のタイムスタンプに伝播
 
-### 依存関係管理
+#### 依存関係管理
 - **DAG制約**: 非循環有向グラフの維持（サイクル検出機能）
 - **レイヤー分離**: Task間依存、SubTask間依存のみ許可（cross-layer依存は禁止）
 - **依存関係の橋渡し**: ノード削除時の依存関係再接続（delete_with_bridge）
 - **トランザクション整合性**: connection共有によるアトミックな操作
 
-### ステータス管理
+#### ステータス管理
 - **ステータス種別**: UNSET, NOT_STARTED, IN_PROGRESS, DONE
 - **DONE遷移条件**: すべての先行ノード + すべての子SubTaskがDONE
 - **バリデーション**: ステータス遷移時の依存関係検証
 
-### 削除制御
+#### 削除制御
 - **デフォルト削除**: 子ノードが存在する場合はエラー（ChildExistsError）
 - **橋渡し削除**: 依存関係を再接続してから削除（delete_with_bridge）
-- **連鎖削除**: Phase 2/3 で実装予定（現在はNotImplementedError）
+- **連鎖削除**: Phase 3 で実装予定（現在はNotImplementedError）
+
+### Phase 2: TUIインターフェース（完了）
+
+#### CLIコマンド
+- **list projects**: Project一覧をRich Tableで表示
+- **show project <id>**: Project階層ツリーをRich Treeで表示（4階層、ステータス記号付き）
+- **add project/subproject/task/subtask**: エンティティ追加（対話的入力サポート）
+- **delete project/subproject/task/subtask <id> [--bridge]**: エンティティ削除（標準削除・橋渡し削除）
+- **status task/subtask <id> <status>**: ステータス変更（DONE遷移条件チェック）
+- **deps add task/subtask --from <id> --to <id>**: 依存関係追加（サイクル検出）
+- **deps remove task/subtask --from <id> --to <id>**: 依存関係削除
+- **deps list task/subtask <id>**: 依存関係一覧表示（親文脈併記）
+
+#### UI/UX機能
+- **ステータス記号**: `[ ]` UNSET, `[⏸]` NOT_STARTED, `[▶]` IN_PROGRESS, `[✓]` DONE
+- **エラーハンドリング**: 詳細なヒントメッセージ、理由タイプ表示
+- **確認プロンプト**: 削除時の確認、橋渡し削除の説明
+- **親文脈表示**: 依存関係一覧でのproject_id/subproject_id/task_id併記
+- **Project直下Task区画化**: UX改善のための区画ノード表示
 
 ## 未実装機能
 
-### Phase 2: TUIインターフェース
-- コマンドラインベースの対話的インターフェース
-- プロジェクト・タスクのツリー表示
-- 操作コマンド（add, update, delete, status, deps）
-
-### Phase 3: 拡張機能
+### Phase 3: 拡張機能（予定）
 - テンプレート機能（プロジェクト・タスク構造のテンプレート化）
 - doctor/check バリデーション（データ整合性チェック）
 - Dry-run プレビュー（操作前の影響確認）
-- cascade_delete の正式実装
+- cascade_delete の正式実装（連鎖削除）
 
 ## テスト
 
-**現状（Phase 1）:**
+**Phase 1:**
 - `scripts/verify_phase1.py` による機能検証
-- 手動テストケースによる動作確認
+- ビジネスロジック層の完全な動作確認
 
-**今後（Phase 2以降）:**
+**Phase 2:**
+- `scripts/verify_phase2.py` による機能検証
+- TUI層の完全な動作確認
+- 統合テスト（ビジネスロジック層 + TUI層）
+
+**今後（Phase 3以降）:**
 - pytest による自動テスト導入
 - ユニットテスト・インテグレーションテストの充実
 
@@ -370,6 +422,14 @@ TaskをDONEにするには:
 
 ## 開発履歴
 
+### Phase 2 実装完了・承認（2026-01-17）
+TUI層の実装完了・ChatGPTレビュー承認:
+- Rich + prompt_toolkit によるTUI実装
+- argparseによるサブコマンド方式CLI
+- 全コマンド実装（list, show, add, delete, status, deps）
+- 設計レビュー指摘A-1～4、B-5～9すべて対応
+- verify_phase2.py による動作確認完了
+
 ### Phase 1 フィードバック対応（2026-01-16）
 ChatGPTによるコードレビューフィードバックに対応:
 1. ✅ cascade_delete の無効化（NotImplementedError）
@@ -391,5 +451,6 @@ ChatGPTによるコードレビューフィードバックに対応:
 
 ## 更新履歴
 
+- 2026-01-17: Phase 2 完了状態を反映（TUI層追加、コマンド一覧、検証スクリプト追加）
 - 2026-01-17: Phase 1 完了状態を反映した更新（実装済み機能、アーキテクチャ詳細追加）
 - 2026-01-16: 初版作成（CLAUDE_TEMPLATE.mdベース）

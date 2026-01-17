@@ -6,58 +6,86 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 
 ## プロジェクトステータス
 
-**現在のフェーズ:** Phase 1 完了（フィードバック対応済み）
+**現在のフェーズ:** Phase 2 完了（レビュー承認済み）
 
 - ✅ Phase 0: 基盤構築（DB設計、初期化スクリプト）
 - ✅ Phase 1: コア機能実装（CRUD、依存関係管理、ステータス管理、削除制御）
-- ⏳ Phase 2: TUIインターフェース実装（未着手）
-- ⏳ Phase 3: テンプレート機能、バリデーション拡張（未着手）
+- ✅ Phase 2: TUIインターフェース実装（CLIコマンド、Rich表示、エラーハンドリング）
+- ⏳ Phase 3: 拡張機能（テンプレート、doctor/check、dry-run）
 
-## 主要機能（Phase 1 時点）
+## 主要機能
 
-### エンティティ管理
+### Phase 1: ビジネスロジック層
+
+#### エンティティ管理
 - **4階層構造:** Project → SubProject → Task → SubTask
 - **CRUD操作:** 各階層でのCreate/Read/Update/Delete
 - **order_index管理:** 表示順序の自動管理
 - **updated_at伝播:** 子の変更が親のタイムスタンプに伝播
 
-### 依存関係管理
+#### 依存関係管理
 - **DAG制約:** 非循環有向グラフの維持（サイクル検出機能）
 - **レイヤー分離:** Task間依存、SubTask間依存のみ許可
 - **依存関係の橋渡し:** ノード削除時の依存関係再接続
 
-### ステータス管理
+#### ステータス管理
 - **ステータス種別:** UNSET, NOT_STARTED, IN_PROGRESS, DONE
 - **DONE遷移条件:** すべての先行ノード + すべての子SubTaskがDONE
 - **トランザクション整合性:** ステータス遷移時の依存関係検証
 
-### 削除制御
+#### 削除制御
 - **デフォルト削除:** 子ノードが存在する場合はエラー
 - **橋渡し削除:** 依存関係を再接続してから削除
-- **連鎖削除:** Phase 2/3 で実装予定（現在は無効化）
+- **連鎖削除:** Phase 3 で実装予定（現在は無効化）
+
+### Phase 2: TUIインターフェース
+
+#### CLIコマンド
+- `pmtool list projects` - Project一覧表示（Rich Table）
+- `pmtool show project <id>` - 階層ツリー表示（Rich Tree、4階層）
+- `pmtool add project/subproject/task/subtask` - エンティティ追加
+- `pmtool delete <entity> <id> [--bridge]` - エンティティ削除（標準・橋渡し）
+- `pmtool status task/subtask <id> <status>` - ステータス変更
+- `pmtool deps add/remove/list task/subtask` - 依存関係管理
+
+#### UI/UX機能
+- **ステータス記号:** `[ ]` UNSET, `[⏸]` NOT_STARTED, `[▶]` IN_PROGRESS, `[✓]` DONE
+- **詳細なエラーメッセージ:** 失敗理由と対処方法のヒント表示
+- **確認プロンプト:** 削除時の安全確認
+- **親文脈表示:** 依存関係一覧でのproject_id/task_id併記
+- **対話的入力:** 未指定項目の自動プロンプト
 
 ## 技術スタック
 
 - **言語:** Python 3.10+
 - **データベース:** SQLite3
+- **UI/UX:** Rich (表示), prompt_toolkit (入力)
 - **開発ツール:** Claude Code、ChatGPT
-- **テスト:** pytest（Phase 2 で本格実装予定）
+- **テスト:** 検証スクリプト（verify_phase1.py, verify_phase2.py）
 
 ## プロジェクト構造
 
 ```
 ProjectManagementTool/
 ├── src/pmtool/              # ソースコード
-│   ├── database.py          # DB接続・初期化
-│   ├── models.py            # エンティティモデル（dataclass）
-│   ├── repository.py        # CRUD操作
-│   ├── dependencies.py      # 依存関係管理・DAG検証
-│   ├── status.py            # ステータス管理
-│   ├── validators.py        # バリデーション
-│   └── exceptions.py        # カスタム例外
+│   ├── database.py          # DB接続・初期化（Phase 1）
+│   ├── models.py            # エンティティモデル（dataclass）（Phase 1）
+│   ├── repository.py        # CRUD操作（Phase 1）
+│   ├── dependencies.py      # 依存関係管理・DAG検証（Phase 1）
+│   ├── status.py            # ステータス管理（Phase 1）
+│   ├── validators.py        # バリデーション（Phase 1）
+│   ├── exceptions.py        # カスタム例外（Phase 1）
+│   └── tui/                 # TUIインターフェース（Phase 2）
+│       ├── __init__.py      # tuiパッケージ初期化
+│       ├── formatters.py    # ステータスフォーマット
+│       ├── input.py         # 対話的入力処理
+│       ├── display.py       # Rich表示ロジック
+│       ├── cli.py           # CLIエントリーポイント
+│       └── commands.py      # コマンドハンドラ
 ├── scripts/                 # ユーティリティスクリプト
 │   ├── init_db.sql          # DB初期化SQL
-│   └── verify_phase1.py     # Phase 1 検証スクリプト
+│   ├── verify_phase1.py     # Phase 1 検証スクリプト
+│   └── verify_phase2.py     # Phase 2 検証スクリプト
 ├── docs/                    # ドキュメント
 │   ├── README.md            # ドキュメント構造ガイド
 │   ├── specifications/      # 実装仕様書
@@ -65,6 +93,9 @@ ProjectManagementTool/
 │   └── discussions/         # 議論ログ・レビュー記録
 ├── data/                    # データベースファイル
 │   └── pmtool.db            # SQLiteデータベース
+├── setup.py                 # パッケージ設定
+├── pyproject.toml           # プロジェクト設定
+├── requirements.txt         # 依存ライブラリ
 └── temp/                    # 一時ファイル（Git管理対象外）
 ```
 
@@ -82,6 +113,9 @@ ProjectManagementTool/
 git clone <repository-url>
 cd ProjectManagementTool
 
+# 依存ライブラリのインストール
+pip install -e .
+
 # データベース初期化
 python -c "from src.pmtool.database import Database; db = Database('data/pmtool.db'); db.initialize('scripts/init_db.sql', force=True)"
 ```
@@ -89,8 +123,17 @@ python -c "from src.pmtool.database import Database; db = Database('data/pmtool.
 ### 動作確認
 
 ```bash
-# Phase 1 検証スクリプト実行
+# Phase 1 検証（ビジネスロジック層）
 python scripts/verify_phase1.py
+
+# Phase 2 検証（TUI層）
+python scripts/verify_phase2.py
+
+# CLIコマンド実行例
+pmtool --help
+pmtool list projects
+pmtool add project --name "テストプロジェクト" --desc "説明"
+pmtool show project 1
 ```
 
 期待される出力：すべてのテストが成功（✓ マーク）
@@ -106,8 +149,9 @@ python scripts/verify_phase1.py
 - **[docs/design/](docs/design/)** - 設計書・計画書
   - DB設計書_v2.1_最終版.md
   - 実装方針確定メモ.md
-  - Phase0_完了_Phase1_引き継ぎ事項.md
+  - Phase2_TUI設計書.md
 - **[docs/discussions/](docs/discussions/)** - 議論ログ・レビュー記録
+  - Phase2_完了レポート.md
   - Phase1_フィードバック対応完了レポート.md
 
 **開発を開始する前に:**
@@ -115,7 +159,42 @@ python scripts/verify_phase1.py
 2. `docs/design/` で設計方針を理解
 3. `docs/discussions/` で過去の議論・意思決定を参照
 
-## 使用例（Phase 1 API）
+## 使用例
+
+### Phase 2: CLIコマンド（推奨）
+
+```bash
+# プロジェクト一覧表示
+pmtool list projects
+
+# プロジェクト作成
+pmtool add project --name "新プロジェクト" --desc "説明文"
+
+# サブプロジェクト作成
+pmtool add subproject --project 1 --name "サブプロジェクト1"
+
+# タスク作成
+pmtool add task --project 1 --subproject 1 --name "タスク1"
+pmtool add task --project 1 --subproject 1 --name "タスク2"
+
+# 依存関係追加（タスク1 → タスク2）
+pmtool deps add task --from 1 --to 2
+
+# 階層ツリー表示
+pmtool show project 1
+
+# ステータス変更
+pmtool status task 1 DONE
+pmtool status task 2 DONE
+
+# 依存関係一覧表示
+pmtool deps list task 2
+
+# タスク削除（橋渡し削除）
+pmtool delete task 1 --bridge
+```
+
+### Phase 1: Python API（高度な用途）
 
 ```python
 from src.pmtool.database import Database
@@ -153,6 +232,16 @@ db.close()
 
 ## 開発履歴
 
+### Phase 2 実装完了・承認（2026-01-17）
+
+TUI層の実装完了・ChatGPTレビュー承認:
+- Rich + prompt_toolkit によるTUI実装
+- argparseによるサブコマンド方式CLI（全8コマンド）
+- 設計レビュー指摘A-1～4、B-5～9すべて対応
+- verify_phase2.py による動作確認完了
+
+詳細: [docs/discussions/Phase2_完了レポート.md](docs/discussions/Phase2_完了レポート.md)
+
 ### Phase 1 フィードバック対応（2026-01-16）
 
 ChatGPTによるコードレビューフィードバックに対応:
@@ -177,19 +266,24 @@ ChatGPTによるコードレビューフィードバックに対応:
 - Database クラス実装
 - 初期化スクリプト（init_db.sql）
 
-## 今後の予定
+## 今後の予定（Phase 3）
 
-### Phase 2: TUIインターフェース
+### 実装候補機能
 
-- コマンドラインベースの対話的インターフェース実装
-- プロジェクト・タスクのツリー表示
-- 操作コマンド（add, update, delete, status, deps）
+- **update系コマンド:** 名前・説明・order_index変更
+- **doctor/checkコマンド:** データ整合性チェック
+- **dry-run機能:** 破壊的操作のプレビュー
+- **テンプレート機能:** プロジェクト・タスク構造のテンプレート化
+- **検索・フィルタ:** エンティティ検索、ステータスフィルタ
+- **依存関係可視化強化:** グラフ表示、クリティカルパス分析
 
-### Phase 3: 拡張機能
+### 改善候補（技術的負債）
 
-- テンプレート機能（プロジェクト・タスク構造のテンプレート化）
-- doctor/check バリデーション（データ整合性チェック）
-- Dry-run プレビュー（操作前の影響確認）
+- ステータス遷移エラーの理由表現強化（reason code、例外型分離）
+- SubProject入れ子データの表示方針確定
+- 表示順（order_index）の明示的保証
+- 絵文字・記号の端末依存対応
+- pytest自動テスト導入
 
 ## ライセンス
 
