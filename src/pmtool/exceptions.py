@@ -69,6 +69,41 @@ class StatusTransitionError(PMToolError):
         self.details = details or {}
 
 
+class DeletionFailureReason(Enum):
+    """削除失敗の理由コード"""
+
+    CHILD_EXISTS = "child_exists"
+    """子エンティティが存在するため削除不可"""
+
+    DEPENDENCY_EXISTS = "dependency_exists"
+    """依存関係が存在するため削除不可"""
+
+    NOT_FOUND = "not_found"
+    """削除対象が存在しない"""
+
+    OTHER = "other"
+    """その他の理由"""
+
+
 class DeletionError(PMToolError):
-    """削除が許可されない場合に発生 (例: 子ノードが存在、依存関係が破壊される)"""
-    pass
+    """
+    削除が許可されない場合に発生 (例: 子ノードが存在、依存関係が破壊される)
+
+    Phase 3 以降では reason code を持つようになり、エラー理由を構造化して管理します。
+    """
+
+    def __init__(
+        self,
+        message: str,
+        reason: Optional[DeletionFailureReason] = None,
+        details: Optional[dict] = None,
+    ):
+        """
+        Args:
+            message: エラーメッセージ
+            reason: 失敗理由コード（Phase 3 以降で使用）
+            details: 追加の詳細情報（例: 子エンティティの件数）
+        """
+        super().__init__(message)
+        self.reason = reason
+        self.details = details or {}

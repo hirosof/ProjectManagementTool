@@ -11,6 +11,7 @@ from rich.console import Console
 from ..database import Database
 from ..dependencies import DependencyManager
 from ..doctor import Doctor
+from ..exceptions import DeletionError
 from ..repository import (
     ProjectRepository,
     SubProjectRepository,
@@ -255,44 +256,96 @@ def _show_delete_impact(
         before_deps = _count_dependencies(cursor)
 
         # 削除処理を実行（トランザクション内）
-        if entity_type == "project":
-            _delete_project_in_transaction(db, entity_id, conn)
-        elif entity_type == "subproject":
-            _delete_subproject_in_transaction(db, entity_id, conn)
-        elif entity_type == "task":
-            _delete_task_in_transaction(db, entity_id, use_bridge, conn)
-        elif entity_type == "subtask":
-            _delete_subtask_in_transaction(db, entity_id, use_bridge, conn)
+        try:
+            if entity_type == "project":
+                _delete_project_in_transaction(db, entity_id, conn)
+            elif entity_type == "subproject":
+                _delete_subproject_in_transaction(db, entity_id, conn)
+            elif entity_type == "task":
+                _delete_task_in_transaction(db, entity_id, use_bridge, conn)
+            elif entity_type == "subtask":
+                _delete_subtask_in_transaction(db, entity_id, use_bridge, conn)
 
-        # 削除後の件数を取得
-        after_counts = _count_entities(cursor)
-        after_deps = _count_dependencies(cursor)
+            # 削除後の件数を取得
+            after_counts = _count_entities(cursor)
+            after_deps = _count_dependencies(cursor)
 
-        # 差分を計算して表示
-        console.print("[bold]削除対象:[/bold]")
-        for entity, before in before_counts.items():
-            after = after_counts[entity]
-            diff = before - after
-            if diff > 0:
-                console.print(f"  {entity}: {diff}件")
+            # 差分を計算して表示
+            console.print("[bold]削除対象:[/bold]")
+            for entity, before in before_counts.items():
+                after = after_counts[entity]
+                diff = before - after
+                if diff > 0:
+                    console.print(f"  {entity}: {diff}件")
 
-        if any(before_counts[k] - after_counts[k] > 0 for k in before_counts):
-            console.print("\n[bold]削除される依存関係:[/bold]")
-            task_dep_diff = before_deps["task"] - after_deps["task"]
-            subtask_dep_diff = before_deps["subtask"] - after_deps["subtask"]
-            if task_dep_diff > 0:
-                console.print(f"  Task依存: {task_dep_diff}件")
-            if subtask_dep_diff > 0:
-                console.print(f"  SubTask依存: {subtask_dep_diff}件")
+            if any(before_counts[k] - after_counts[k] > 0 for k in before_counts):
+                console.print("\n[bold]削除される依存関係:[/bold]")
+                task_dep_diff = before_deps["task"] - after_deps["task"]
+                subtask_dep_diff = before_deps["subtask"] - after_deps["subtask"]
+                if task_dep_diff > 0:
+                    console.print(f"  Task依存: {task_dep_diff}件")
+                if subtask_dep_diff > 0:
+                    console.print(f"  SubTask依存: {subtask_dep_diff}件")
 
-        console.print(
-            "\n[yellow]※ これは dry-run です。実際には削除されません。[/yellow]"
-        )
-        console.print("[dim]実行する場合は --dry-run を外してください。[/dim]")
+            console.print(
+                "\n[yellow]※ これは dry-run です。実際には削除されません。[/yellow]"
+            )
+            console.print("[dim]実行する場合は --dry-run を外してください。[/dim]")
+
+        except DeletionError as e:
+            # 子が存在する場合など、削除が失敗する場合でもプレビュー可能にする
+            console.print(f"\n[yellow]⚠️  この削除は失敗します: {e}[/yellow]")
+
+            # 子の件数を取得して表示
+            from ..exceptions import DeletionFailureReason
+            if e.reason == DeletionFailureReason.CHILD_EXISTS:
+                _show_child_count(cursor, entity_type, entity_id)
+
+            console.print("\n[dim]ヒント: 子エンティティを先に削除するか、--bridge オプションを使用してください[/dim]")
 
     finally:
         # 必ず rollback（dry-run なので変更を破棄）
         conn.rollback()
+        # 注: Database.connect() はシングルトン接続を返すため、ここで close() しない
+        # close() すると他の処理で "Cannot operate on a closed database" エラーになる
+
+
+def _show_child_count(cursor, entity_type: str, entity_id: int) -> None:
+    """
+    子エンティティの件数を表示する（DeletionError時のプレビュー用）
+
+    Args:
+        cursor: カーソル
+        entity_type: エンティティ種別
+        entity_id: エンティティID
+    """
+    console.print("\n[bold]子エンティティ:[/bold]")
+
+    if entity_type == "project":
+        cursor.execute("SELECT COUNT(*) FROM subprojects WHERE project_id = ?", (entity_id,))
+        subproject_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM tasks WHERE project_id = ?", (entity_id,))
+        task_count = cursor.fetchone()[0]
+        if subproject_count > 0:
+            console.print(f"  SubProject: {subproject_count}件")
+        if task_count > 0:
+            console.print(f"  Task: {task_count}件")
+
+    elif entity_type == "subproject":
+        cursor.execute("SELECT COUNT(*) FROM subprojects WHERE parent_subproject_id = ?", (entity_id,))
+        child_subproject_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM tasks WHERE subproject_id = ?", (entity_id,))
+        task_count = cursor.fetchone()[0]
+        if child_subproject_count > 0:
+            console.print(f"  SubProject（子）: {child_subproject_count}件")
+        if task_count > 0:
+            console.print(f"  Task: {task_count}件")
+
+    elif entity_type == "task":
+        cursor.execute("SELECT COUNT(*) FROM subtasks WHERE task_id = ?", (entity_id,))
+        subtask_count = cursor.fetchone()[0]
+        if subtask_count > 0:
+            console.print(f"  SubTask: {subtask_count}件")
 
 
 def _count_entities(cursor) -> dict:
@@ -322,39 +375,90 @@ def _count_dependencies(cursor) -> dict:
 def _delete_project_in_transaction(
     db: Database, project_id: int, conn
 ) -> None:
-    """Project削除処理（トランザクション内）"""
+    """
+    Project削除処理（トランザクション内）
+
+    Repository.delete() は conn パラメータを受け取らないため、
+    直接 repository の内部メソッドを呼び出して削除を実行する。
+    子チェックは repository 内で実行されるため、DeletionError が発生する可能性がある。
+    """
     repo = ProjectRepository(db)
-    repo.delete(project_id, conn=conn)
+    # 子チェック（子が存在すると DeletionError）
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM subprojects WHERE project_id = ?", (project_id,))
+    subproject_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM tasks WHERE project_id = ?", (project_id,))
+    task_count = cursor.fetchone()[0]
+
+    from ..exceptions import DeletionFailureReason
+    if subproject_count > 0 or task_count > 0:
+        raise DeletionError(
+            f"Cannot delete project {project_id}: child entities exist (SubProject: {subproject_count}, Task: {task_count})",
+            reason=DeletionFailureReason.CHILD_EXISTS
+        )
+
+    # 実際の削除（トランザクション内）
+    cursor.execute("DELETE FROM projects WHERE id = ?", (project_id,))
 
 
 def _delete_subproject_in_transaction(
     db: Database, subproject_id: int, conn
 ) -> None:
     """SubProject削除処理（トランザクション内）"""
-    repo = SubProjectRepository(db)
-    repo.delete(subproject_id, conn=conn)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM subprojects WHERE parent_subproject_id = ?", (subproject_id,))
+    child_subproject_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM tasks WHERE subproject_id = ?", (subproject_id,))
+    task_count = cursor.fetchone()[0]
+
+    from ..exceptions import DeletionFailureReason
+    if child_subproject_count > 0 or task_count > 0:
+        raise DeletionError(
+            f"Cannot delete subproject {subproject_id}: child entities exist (SubProject: {child_subproject_count}, Task: {task_count})",
+            reason=DeletionFailureReason.CHILD_EXISTS
+        )
+
+    cursor.execute("DELETE FROM subprojects WHERE id = ?", (subproject_id,))
 
 
 def _delete_task_in_transaction(
     db: Database, task_id: int, use_bridge: bool, conn
 ) -> None:
     """Task削除処理（トランザクション内）"""
-    repo = TaskRepository(db)
+    cursor = conn.cursor()
+
     if use_bridge:
-        repo.delete_with_bridge(task_id, conn=conn)
+        # 橋渡し削除: DependencyManager を使用
+        dep_manager = DependencyManager(db)
+        dep_manager.delete_task_with_bridge(task_id, conn=conn)
     else:
-        repo.delete(task_id, conn=conn)
+        # 通常削除: 子チェック
+        cursor.execute("SELECT COUNT(*) FROM subtasks WHERE task_id = ?", (task_id,))
+        subtask_count = cursor.fetchone()[0]
+
+        from ..exceptions import DeletionFailureReason
+        if subtask_count > 0:
+            raise DeletionError(
+                f"Cannot delete task {task_id}: child entities exist (SubTask: {subtask_count})",
+                reason=DeletionFailureReason.CHILD_EXISTS
+            )
+
+        cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
 
 
 def _delete_subtask_in_transaction(
     db: Database, subtask_id: int, use_bridge: bool, conn
 ) -> None:
     """SubTask削除処理（トランザクション内）"""
-    repo = SubTaskRepository(db)
+    cursor = conn.cursor()
+
     if use_bridge:
-        repo.delete_with_bridge(subtask_id, conn=conn)
+        # 橋渡し削除: DependencyManager を使用
+        dep_manager = DependencyManager(db)
+        dep_manager.delete_subtask_with_bridge(subtask_id, conn=conn)
     else:
-        repo.delete(subtask_id, conn=conn)
+        # 通常削除: SubTaskには子がないので直接削除
+        cursor.execute("DELETE FROM subtasks WHERE id = ?", (subtask_id,))
 
 
 def _delete_project(db: Database, project_id: int) -> None:
