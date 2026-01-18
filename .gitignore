@@ -48,6 +48,10 @@ env/
 *.swo
 *~
 
+# pytest-cov カバレッジファイル
+.coverage
+htmlcov/
+
 # Windowsの予約語
 
 CON
