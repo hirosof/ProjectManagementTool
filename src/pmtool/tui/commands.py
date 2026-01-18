@@ -178,7 +178,7 @@ def handle_delete(db: Database, args: Namespace) -> None:
     """
     deleteコマンドの処理
 
-    標準削除または橋渡し削除を実行する。
+    標準削除、橋渡し削除、またはカスケード削除を実行する。
     --dry-run が指定された場合は影響範囲のみを表示する。
 
     Args:
@@ -188,7 +188,16 @@ def handle_delete(db: Database, args: Namespace) -> None:
     entity_type = args.entity
     entity_id = args.id
     use_bridge = getattr(args, "bridge", False)
+    use_cascade = getattr(args, "cascade", False)
+    force = getattr(args, "force", False)
     dry_run = getattr(args, "dry_run", False)
+
+    # --bridge と --cascade の排他チェック
+    if use_bridge and use_cascade:
+        console.print(
+            "[red]エラー: --bridge と --cascade は同時に指定できません。[/red]"
+        )
+        return
 
     # --bridgeの適用範囲チェック（レビュー指摘A-1対応）
     if use_bridge and entity_type in ("project", "subproject"):
@@ -198,13 +207,28 @@ def handle_delete(db: Database, args: Namespace) -> None:
         )
         return
 
+    # --cascade 使用時の --force チェック
+    if use_cascade and not force and not dry_run:
+        console.print(
+            "[red]エラー: --cascade を使用する場合は --force が必要です。[/red]\n"
+            "[dim]ヒント: --dry-run で影響範囲を確認してから --force を指定してください。[/dim]"
+        )
+        return
+
     # dry-run の場合は影響範囲を表示して終了
     if dry_run:
-        _show_delete_impact(db, entity_type, entity_id, use_bridge)
+        _show_delete_impact(db, entity_type, entity_id, use_bridge, use_cascade)
         return
 
     # 確認プロンプト（レビュー指摘A-2対応）
-    if use_bridge:
+    if use_cascade:
+        msg = (
+            f"{entity_type} ID={entity_id} をカスケード削除しますか？\n"
+            f"  - すべての子エンティティも削除されます\n"
+            f"  - 依存関係も削除されます\n"
+            f"  [bold red]※ この操作は取り消せません[/bold red]"
+        )
+    elif use_bridge:
         msg = (
             f"{entity_type} ID={entity_id} を橋渡し削除しますか？\n"
             f"  - 先行ノードと後続ノードを再接続します\n"
@@ -218,7 +242,9 @@ def handle_delete(db: Database, args: Namespace) -> None:
         return
 
     # エンティティ種別に応じて削除処理
-    if entity_type == "project":
+    if use_cascade:
+        _delete_cascade(db, entity_type, entity_id)
+    elif entity_type == "project":
         _delete_project(db, entity_id)
     elif entity_type == "subproject":
         _delete_subproject(db, entity_id)
@@ -229,7 +255,7 @@ def handle_delete(db: Database, args: Namespace) -> None:
 
 
 def _show_delete_impact(
-    db: Database, entity_type: str, entity_id: int, use_bridge: bool
+    db: Database, entity_type: str, entity_id: int, use_bridge: bool, use_cascade: bool = False
 ) -> None:
     """
     削除影響範囲を表示する（dry-run）
@@ -241,6 +267,7 @@ def _show_delete_impact(
         entity_type: 削除対象のエンティティ種別
         entity_id: 削除対象のエンティティID
         use_bridge: 橋渡し削除かどうか
+        use_cascade: カスケード削除かどうか
     """
     console.print(
         f"\n[bold cyan]=== Dry-run: Delete {entity_type.title()} {entity_id} ===[/bold cyan]\n"
@@ -257,7 +284,9 @@ def _show_delete_impact(
 
         # 削除処理を実行（トランザクション内）
         try:
-            if entity_type == "project":
+            if use_cascade:
+                _delete_cascade_in_transaction(db, entity_type, entity_id, conn)
+            elif entity_type == "project":
                 _delete_project_in_transaction(db, entity_id, conn)
             elif entity_type == "subproject":
                 _delete_subproject_in_transaction(db, entity_id, conn)
@@ -507,6 +536,100 @@ def _delete_subtask(db: Database, subtask_id: int, use_bridge: bool) -> None:
         repo = SubTaskRepository(db)
         repo.delete(subtask_id)
         console.print(f"[green]✓[/green] SubTask ID={subtask_id} を削除しました。")
+
+
+def _delete_cascade(db: Database, entity_type: str, entity_id: int) -> None:
+    """
+    カスケード削除処理（サブツリー一括削除）
+
+    Args:
+        db: Database インスタンス
+        entity_type: 削除対象のエンティティ種別
+        entity_id: 削除対象のエンティティID
+    """
+    conn = db.connect()
+    cursor = conn.cursor()
+
+    try:
+        # トランザクション開始
+        conn.execute("BEGIN")
+
+        # エンティティ種別に応じてカスケード削除
+        _delete_cascade_in_transaction(db, entity_type, entity_id, conn)
+
+        # コミット
+        conn.commit()
+        console.print(
+            f"[green]✓[/green] {entity_type.title()} ID={entity_id} をカスケード削除しました。"
+        )
+
+    except Exception as e:
+        conn.rollback()
+        console.print(f"[red]ERROR: カスケード削除に失敗しました: {e}[/red]")
+        raise
+
+
+def _delete_cascade_in_transaction(
+    db: Database, entity_type: str, entity_id: int, conn
+) -> None:
+    """
+    カスケード削除のトランザクション内処理
+
+    Args:
+        db: Database インスタンス
+        entity_type: 削除対象のエンティティ種別
+        entity_id: 削除対象のエンティティID
+        conn: データベース接続
+    """
+    cursor = conn.cursor()
+
+    if entity_type == "project":
+        # Project配下の全エンティティを削除
+        # 1. SubTask削除（Task→SubTaskの順）
+        cursor.execute("""
+            DELETE FROM subtasks
+            WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)
+        """, (entity_id,))
+
+        # 2. Task削除
+        cursor.execute("DELETE FROM tasks WHERE project_id = ?", (entity_id,))
+
+        # 3. SubProject削除
+        cursor.execute("DELETE FROM subprojects WHERE project_id = ?", (entity_id,))
+
+        # 4. Project削除
+        cursor.execute("DELETE FROM projects WHERE id = ?", (entity_id,))
+
+    elif entity_type == "subproject":
+        # SubProject配下の全エンティティを削除
+        # 1. SubTask削除
+        cursor.execute("""
+            DELETE FROM subtasks
+            WHERE task_id IN (SELECT id FROM tasks WHERE subproject_id = ?)
+        """, (entity_id,))
+
+        # 2. Task削除
+        cursor.execute("DELETE FROM tasks WHERE subproject_id = ?", (entity_id,))
+
+        # 3. 子SubProject削除（再帰的に）
+        cursor.execute("SELECT id FROM subprojects WHERE parent_subproject_id = ?", (entity_id,))
+        child_subprojects = cursor.fetchall()
+        for child_sp in child_subprojects:
+            _delete_cascade_in_transaction(db, "subproject", child_sp[0], conn)
+
+        # 4. SubProject自身を削除
+        cursor.execute("DELETE FROM subprojects WHERE id = ?", (entity_id,))
+
+    elif entity_type == "task":
+        # Task配下の全SubTaskを削除
+        cursor.execute("DELETE FROM subtasks WHERE task_id = ?", (entity_id,))
+
+        # Task自身を削除
+        cursor.execute("DELETE FROM tasks WHERE id = ?", (entity_id,))
+
+    elif entity_type == "subtask":
+        # SubTaskには子がないので直接削除
+        cursor.execute("DELETE FROM subtasks WHERE id = ?", (entity_id,))
 
 
 # ===== status コマンド =====

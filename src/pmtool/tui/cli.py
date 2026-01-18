@@ -72,6 +72,16 @@ def create_parser() -> argparse.ArgumentParser:
         help="依存関係の橋渡し削除（Task/SubTaskのみ有効）",
     )
     delete_parser.add_argument(
+        "--cascade",
+        action="store_true",
+        help="サブツリー一括削除（子エンティティも含めて削除）",
+    )
+    delete_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="削除を強制実行（--cascade 使用時は必須）",
+    )
+    delete_parser.add_argument(
         "--dry-run",
         action="store_true",
         help="削除を実行せず、影響範囲のみを表示",
