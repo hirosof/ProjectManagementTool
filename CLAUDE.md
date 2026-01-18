@@ -16,7 +16,7 @@
 - DAG（有向非循環グラフ）制約による安全な依存関係管理
 - ステータス管理による作業フローの可視化と制御
 
-**現在のフェーズ:** Phase 2 完了（レビュー承認済み）
+**現在のフェーズ:** Phase 4 実装中（P4-01 完了、P4-02以降実装予定）
 
 ## 技術スタック
 
@@ -204,6 +204,8 @@ ProjectManagementTool/
 - **`docs/design/DB設計書_v2.1_最終版.md`** - データベース設計の詳細
 - **`docs/design/実装方針確定メモ.md`** - 実装方針の決定事項
 - **`docs/design/Phase2_TUI設計書.md`** - Phase 2 TUI設計書
+- **`docs/design/Phase3_拡張機能実装_設計書.md`** - Phase 3 拡張機能設計書
+- **`docs/design/Phase4_品質安定性向上_設計書.md`** - Phase 4 品質・安定性向上設計書
 
 **Phase 1（ビジネスロジック層）:**
 - **`src/pmtool/repository.py`** - CRUD操作の実装（1300行超の中核ファイル）
@@ -284,19 +286,59 @@ pmtool show project 1
 - **親文脈表示**: 依存関係一覧でのproject_id/subproject_id/task_id併記
 - **Project直下Task区画化**: UX改善のための区画ノード表示
 
+### Phase 3: 拡張機能（P0完了）
+
+#### P0実装済み機能
+- **P0-01**: Project直下Task区画化（UX改善）
+- **P0-02**: `deps list` コマンド実装
+- **P0-03**: 削除時の確認プロンプト
+- **P0-04**: `deps` コマンドでの親文脈表示
+- **P0-05**: `--bridge` オプション実装
+- **P0-06**: ステータスエラー時の詳細ヒント
+- **P0-07**: 橋渡し削除の説明追加
+- **P0-08**: エラーメッセージの理由タイプ表示
+
+### Phase 4: 品質・安定性向上（実装中）
+
+#### P4-01実装済み（テスト基盤強化）
+- **pytest-cov 設定**: カバレッジ計測環境整備（pyproject.toml）
+- **エッジケーステスト追加**: test_repository_edgecases.py、test_dependencies_edgecases.py
+- **TUI統合テスト追加**: test_tui_integration.py
+- **カバレッジ計測範囲明確化**: src/pmtool のみ、`__init__.py` 除外
+
+**現在のカバレッジ:** 53%（目標80%、P4-02以降で改善継続）
+
+#### P4-02以降（実装予定）
+- **P4-02**: 依存関係の可視化強化（direct graph、chain、impact）
+- **P4-03**: dry-run の拡張（status DONE）
+- **P4-04**: doctor/check の拡充
+- **P4-05**: cascade_delete の正式実装
+- **P4-06**: エラーハンドリング改善
+
 ## 未実装機能
 
-### Phase 3: 拡張機能（予定）
-- テンプレート機能（プロジェクト・タスク構造のテンプレート化）
-- doctor/check バリデーション（データ整合性チェック）
-- Dry-run プレビュー（操作前の影響確認）
-- cascade_delete の正式実装（連鎖削除）
+### Phase 4 残タスク
+- テンプレート機能仕様確定（実装は行わない、Phase 5 で実装予定）
+- ユーザードキュメント整備（user guide、tutorial、FAQ）
+
+### Phase 5 以降（予定）
+- Textual 等の全画面TUI（別プログラム/別系統として実装）
+- テンプレート機能実装（Textual版のみ）
 
 ## テスト
 
 **Phase 1:**
 - `scripts/verify_phase1.py` による機能検証
 - ビジネスロジック層の完全な動作確認
+
+**Phase 3:**
+- pytest による自動テスト（P0-08で導入）
+- コア層の代表的テストケース（repository、dependencies、status、doctor）
+
+**Phase 4:**
+- pytest-cov によるカバレッジ測定
+- エッジケース・境界値テスト（空文字、NULL、巨大な値、境界値）
+- TUI層の統合テスト（最低限）
 
 **Phase 2:**
 - `scripts/verify_phase2.py` による機能検証

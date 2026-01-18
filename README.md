@@ -6,12 +6,13 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 
 ## プロジェクトステータス
 
-**現在のフェーズ:** Phase 2 完了（レビュー承認済み）
+**現在のフェーズ:** Phase 4 実装中（P4-01 完了、P4-02以降実装予定）
 
 - ✅ Phase 0: 基盤構築（DB設計、初期化スクリプト）
 - ✅ Phase 1: コア機能実装（CRUD、依存関係管理、ステータス管理、削除制御）
 - ✅ Phase 2: TUIインターフェース実装（CLIコマンド、Rich表示、エラーハンドリング）
-- ⏳ Phase 3: 拡張機能（テンプレート、doctor/check、dry-run）
+- ✅ Phase 3: 拡張機能（P0完了：UX改善、エラーメッセージ強化）
+- ⏳ Phase 4: 品質・安定性向上（テスト基盤強化、依存可視化、dry-run拡張、doctor拡充）
 
 ## 主要機能
 
@@ -61,7 +62,7 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 - **データベース:** SQLite3
 - **UI/UX:** Rich (表示), prompt_toolkit (入力)
 - **開発ツール:** Claude Code、ChatGPT
-- **テスト:** 検証スクリプト（verify_phase1.py, verify_phase2.py）
+- **テスト:** pytest、pytest-cov（カバレッジ53%、目標80%）、検証スクリプト
 
 ## プロジェクト構造
 
@@ -86,6 +87,10 @@ ProjectManagementTool/
 │   ├── init_db.sql          # DB初期化SQL
 │   ├── verify_phase1.py     # Phase 1 検証スクリプト
 │   └── verify_phase2.py     # Phase 2 検証スクリプト
+├── tests/                   # テストファイル（Phase 3/4）
+│   ├── conftest.py          # pytestフィクスチャ
+│   ├── test_*.py            # ユニットテスト
+│   └── test_*_edgecases.py  # エッジケース・境界値テスト
 ├── docs/                    # ドキュメント
 │   ├── README.md            # ドキュメント構造ガイド
 │   ├── specifications/      # 実装仕様書
@@ -231,6 +236,26 @@ db.close()
 ```
 
 ## 開発履歴
+
+### Phase 4 実装中（2026-01-19〜）
+
+品質・安定性向上フェーズ:
+- ✅ **P4-01**: テスト基盤強化（pytest-cov、エッジケース・境界値テスト）
+  - カバレッジ53%（目標80%）
+  - test_repository_edgecases.py、test_dependencies_edgecases.py 追加
+- ⏳ **P4-02以降**: 依存可視化、dry-run拡張、doctor拡充、cascade_delete、エラーハンドリング改善
+
+### Phase 3 実装完了（P0）（2026-01-18）
+
+拡張機能実装（P0完了、P1はPhase 4へ移管）:
+- **P0-01**: Project直下Task区画化（UX改善）
+- **P0-02**: `deps list` コマンド実装
+- **P0-03**: 削除時の確認プロンプト
+- **P0-04**: `deps` コマンドでの親文脈表示
+- **P0-05**: `--bridge` オプション実装
+- **P0-06**: ステータスエラー時の詳細ヒント
+- **P0-07**: 橋渡し削除の説明追加
+- **P0-08**: エラーメッセージの理由タイプ表示
 
 ### Phase 2 実装完了・承認（2026-01-17）
 

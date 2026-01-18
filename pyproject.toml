@@ -35,3 +35,24 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["src/pmtool"]
+omit = [
+    "src/pmtool/__init__.py",
+    "src/pmtool/tui/__init__.py",
+    "tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
