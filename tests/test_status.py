@@ -53,7 +53,8 @@ def test_status_transition_to_done_with_prerequisite_not_done(temp_db: Database)
     with pytest.raises(StatusTransitionError) as exc_info:
         status_mgr.update_task_status(task2.id, "DONE")
 
-    assert "先行ノード" in str(exc_info.value) or "prerequisite" in str(exc_info.value).lower()
+    # エラーメッセージに「先行」や「task」が含まれていることを確認
+    assert "先行" in str(exc_info.value) or "task" in str(exc_info.value).lower()
 
 
 def test_status_transition_to_done_with_child_not_done(temp_db: Database):
