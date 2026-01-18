@@ -5,6 +5,7 @@ TUI コマンドハンドラ
 """
 
 from argparse import Namespace
+from typing import Optional
 
 from rich.console import Console
 
@@ -17,6 +18,7 @@ from ..repository import (
     SubProjectRepository,
     SubTaskRepository,
     TaskRepository,
+    _now,
 )
 from ..status import StatusManager
 from . import display
@@ -665,6 +667,165 @@ def handle_status(db: Database, args: Namespace) -> None:
         console.print(
             f"[green]✓[/green] SubTask ID={entity_id} のステータスを {updated.status} に変更しました。"
         )
+
+
+# ===== update コマンド =====
+
+
+def handle_update(db: Database, args: Namespace) -> None:
+    """
+    updateコマンドの処理
+
+    name / description / order_index を更新する。
+    少なくとも1つのオプションが必要。
+
+    Args:
+        db: Database インスタンス
+        args: コマンドライン引数
+    """
+    entity_type = args.entity
+    entity_id = args.id
+    name = getattr(args, "name", None)
+    description = getattr(args, "description", None)
+    order = getattr(args, "order", None)
+
+    # 少なくとも1つのオプションが必要
+    if name is None and description is None and order is None:
+        console.print(
+            "[red]エラー: 少なくとも1つの更新オプション（--name, --description, --order）が必要です[/red]"
+        )
+        return
+
+    # エンティティ種別に応じて更新処理
+    if entity_type == "project":
+        _update_project(db, entity_id, name, description, order)
+    elif entity_type == "subproject":
+        _update_subproject(db, entity_id, name, description, order)
+    elif entity_type == "task":
+        _update_task(db, entity_id, name, description, order)
+    elif entity_type == "subtask":
+        _update_subtask(db, entity_id, name, description, order)
+
+
+def _update_project(
+    db: Database, project_id: int, name: Optional[str], description: Optional[str], order: Optional[int]
+) -> None:
+    """Project更新処理"""
+    repo = ProjectRepository(db)
+
+    # name/description更新
+    if name is not None or description is not None:
+        updated = repo.update(project_id, name=name, description=description)
+        console.print(f"[green]✓[/green] Project ID={project_id} を更新しました。")
+
+    # order_index更新（Projectにはorder_indexの論理的な意味がないため警告）
+    if order is not None:
+        console.print(
+            f"[yellow]警告: Project に order_index はありません。--order オプションは無視されます。[/yellow]"
+        )
+
+
+def _update_subproject(
+    db: Database, subproject_id: int, name: Optional[str], description: Optional[str], order: Optional[int]
+) -> None:
+    """SubProject更新処理"""
+    repo = SubProjectRepository(db)
+
+    # name/description更新
+    if name is not None or description is not None:
+        updated = repo.update(subproject_id, name=name, description=description)
+        console.print(f"[green]✓[/green] SubProject ID={subproject_id} を更新しました。")
+
+    # order_index更新
+    if order is not None:
+        _update_order_index(db, "subproject", subproject_id, order)
+
+
+def _update_task(
+    db: Database, task_id: int, name: Optional[str], description: Optional[str], order: Optional[int]
+) -> None:
+    """Task更新処理"""
+    repo = TaskRepository(db)
+
+    # name/description更新
+    if name is not None or description is not None:
+        updated = repo.update(task_id, name=name, description=description)
+        console.print(f"[green]✓[/green] Task ID={task_id} を更新しました。")
+
+    # order_index更新
+    if order is not None:
+        _update_order_index(db, "task", task_id, order)
+
+
+def _update_subtask(
+    db: Database, subtask_id: int, name: Optional[str], description: Optional[str], order: Optional[int]
+) -> None:
+    """SubTask更新処理"""
+    repo = SubTaskRepository(db)
+
+    # name/description更新
+    if name is not None or description is not None:
+        updated = repo.update(subtask_id, name=name, description=description)
+        console.print(f"[green]✓[/green] SubTask ID={subtask_id} を更新しました。")
+
+    # order_index更新
+    if order is not None:
+        _update_order_index(db, "subtask", subtask_id, order)
+
+
+def _update_order_index(db: Database, entity_type: str, entity_id: int, new_order: int) -> None:
+    """
+    order_index を更新する
+
+    Args:
+        db: Database インスタンス
+        entity_type: エンティティ種別 ("subproject" | "task" | "subtask")
+        entity_id: エンティティID
+        new_order: 新しいorder_index
+    """
+    conn = db.connect()
+    cursor = conn.cursor()
+
+    try:
+        # テーブル名を決定
+        table_name = {
+            "subproject": "subprojects",
+            "task": "tasks",
+            "subtask": "subtasks",
+        }[entity_type]
+
+        # 存在確認
+        cursor.execute(f"SELECT order_index FROM {table_name} WHERE id = ?", (entity_id,))
+        row = cursor.fetchone()
+        if not row:
+            console.print(f"[red]エラー: {entity_type} ID={entity_id} は存在しません[/red]")
+            return
+
+        current_order = row[0]
+
+        # 既に同じ値の場合はスキップ
+        if current_order == new_order:
+            console.print(f"[yellow]order_index は既に {new_order} です（変更なし）[/yellow]")
+            return
+
+        # 負の値チェック
+        if new_order < 0:
+            console.print(f"[red]エラー: order_index は 0 以上である必要があります[/red]")
+            return
+
+        # order_index 更新
+        now = _now()
+        cursor.execute(
+            f"UPDATE {table_name} SET order_index = ?, updated_at = ? WHERE id = ?",
+            (new_order, now, entity_id),
+        )
+        conn.commit()
+        console.print(f"[green]✓[/green] {entity_type.title()} ID={entity_id} の order_index を {new_order} に更新しました。")
+
+    except Exception as e:
+        conn.rollback()
+        console.print(f"[red]ERROR: order_index 更新に失敗しました: {e}[/red]")
+        raise
 
 
 # ===== deps コマンド =====

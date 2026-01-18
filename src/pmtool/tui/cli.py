@@ -99,6 +99,18 @@ def create_parser() -> argparse.ArgumentParser:
         help="新しいステータス",
     )
 
+    # update コマンド
+    update_parser = subparsers.add_parser("update", help="エンティティ更新")
+    update_parser.add_argument(
+        "entity",
+        choices=["project", "subproject", "task", "subtask"],
+        help="更新対象",
+    )
+    update_parser.add_argument("id", type=int, help="エンティティID")
+    update_parser.add_argument("--name", type=str, help="新しい名前")
+    update_parser.add_argument("--description", "--desc", type=str, help="新しい説明")
+    update_parser.add_argument("--order", type=int, help="新しいorder_index")
+
     # deps コマンド
     deps_parser = subparsers.add_parser("deps", help="依存関係管理")
     deps_subparsers = deps_parser.add_subparsers(dest="deps_command")
@@ -165,6 +177,8 @@ def main() -> None:
             commands.handle_delete(db, args)
         elif args.command == "status":
             commands.handle_status(db, args)
+        elif args.command == "update":
+            commands.handle_update(db, args)
         elif args.command == "deps":
             commands.handle_deps(db, args)
         elif args.command in ("doctor", "check"):
