@@ -644,6 +644,7 @@ def handle_status(db: Database, args: Namespace) -> None:
 
     Task/SubTaskのステータスを変更する。
     DONE遷移条件チェックはStatusManagerに委譲する。
+    --dry-run オプションが指定された場合は、遷移可否のみをチェックする。
 
     Args:
         db: Database インスタンス
@@ -652,12 +653,44 @@ def handle_status(db: Database, args: Namespace) -> None:
     entity_type = args.entity
     entity_id = args.id
     new_status = args.status
+    dry_run = getattr(args, "dry_run", False)
 
     # StatusManager初期化
     dep_manager = DependencyManager(db)
     status_manager = StatusManager(db, dep_manager)
 
-    # ステータス更新
+    # dry-runモード
+    if dry_run:
+        can_transition, error_msg, reason, details = status_manager.dry_run_status_update(
+            entity_id, entity_type, new_status
+        )
+
+        console.print(f"\n[bold]=== Dry-run: ステータス更新可否チェック ===[/bold]")
+        console.print(f"対象: {entity_type.capitalize()} ID={entity_id}")
+        console.print(f"新ステータス: {new_status}\n")
+
+        if can_transition:
+            console.print("[green]✓ ステータス更新可能です[/green]")
+        else:
+            console.print(f"[red]✗ ステータス更新不可[/red]")
+            console.print(f"  理由: {error_msg}")
+            if reason:
+                console.print(f"  理由コード: {reason.value}")
+
+            # 詳細情報を表示（未完了の先行ノードや子ノード）
+            if "incomplete_predecessors" in details:
+                console.print("\n[yellow]未完了の先行ノード:[/yellow]")
+                for pred in details["incomplete_predecessors"]:
+                    console.print(f"  - {entity_type.capitalize()} {pred['id']}: {pred['name']} (status={pred['status']})")
+
+            if "incomplete_children" in details:
+                console.print("\n[yellow]未完了の子SubTask:[/yellow]")
+                for child in details["incomplete_children"]:
+                    console.print(f"  - SubTask {child['id']}: {child['name']} (status={child['status']})")
+
+        return
+
+    # 通常モード（実際にステータスを更新）
     if entity_type == "task":
         updated = status_manager.update_task_status(entity_id, new_status)
         console.print(

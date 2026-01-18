@@ -41,6 +41,12 @@ class StatusTransitionFailureReason(Enum):
     NODE_NOT_FOUND = "node_not_found"
     """対象ノードが存在しない"""
 
+    INVALID_STATUS = "invalid_status"
+    """無効なステータス値"""
+
+    INVALID_NODE_TYPE = "invalid_node_type"
+    """無効なノードタイプ"""
+
     INVALID_TRANSITION = "invalid_transition"
     """無効な遷移（その他の理由）"""
 

@@ -328,3 +328,67 @@ class StatusManager:
                 )
 
         return incomplete
+
+    def dry_run_status_update(
+        self, node_id: int, node_type: str, new_status: str
+    ) -> tuple[bool, str, StatusTransitionFailureReason | None, dict]:
+        """
+        ステータス更新のdry-run（DBを変更せず、可否のみチェック）
+
+        Args:
+            node_id: ノードID (TaskIDまたはSubTaskID)
+            node_type: ノードタイプ ('task' または 'subtask')
+            new_status: 新しいステータス
+
+        Returns:
+            tuple[bool, str, StatusTransitionFailureReason | None, dict]:
+                (可否, エラーメッセージ, reason code, 詳細情報)
+                - True, "", None, {} : 遷移可能
+                - False, "理由", reason, details : 遷移不可能
+        """
+        from .validators import validate_status
+
+        # 1. ステータス値のバリデーション
+        if not validate_status(new_status, node_type):
+            return (
+                False,
+                f"無効なステータス値: {new_status}",
+                StatusTransitionFailureReason.INVALID_STATUS,
+                {"node_id": node_id, "node_type": node_type, "new_status": new_status},
+            )
+
+        # 2. ノードの存在確認
+        if node_type == "task":
+            task_repo = TaskRepository(self.db)
+            node = task_repo.get_by_id(node_id)
+            if not node:
+                return (
+                    False,
+                    f"Task {node_id} が見つかりません",
+                    StatusTransitionFailureReason.NODE_NOT_FOUND,
+                    {"node_id": node_id, "node_type": node_type},
+                )
+        elif node_type == "subtask":
+            subtask_repo = SubTaskRepository(self.db)
+            node = subtask_repo.get_by_id(node_id)
+            if not node:
+                return (
+                    False,
+                    f"SubTask {node_id} が見つかりません",
+                    StatusTransitionFailureReason.NODE_NOT_FOUND,
+                    {"node_id": node_id, "node_type": node_type},
+                )
+        else:
+            return (
+                False,
+                f"無効なノードタイプ: {node_type}",
+                StatusTransitionFailureReason.INVALID_NODE_TYPE,
+                {"node_id": node_id, "node_type": node_type},
+            )
+
+        # 3. DONEへの遷移の場合は前提条件を検証
+        if new_status == "DONE":
+            return self.validate_done_transition(node_id, node_type)
+
+        # 4. DONE以外への遷移は常に許可（現在の仕様）
+        return (True, "", None, {})

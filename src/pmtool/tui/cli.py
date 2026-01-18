@@ -104,6 +104,11 @@ def create_parser() -> argparse.ArgumentParser:
         choices=["UNSET", "NOT_STARTED", "IN_PROGRESS", "DONE"],
         help="新しいステータス",
     )
+    status_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="実際に変更せず、遷移可否のみをチェック",
+    )
 
     # update コマンド
     update_parser = subparsers.add_parser("update", help="エンティティ更新")
