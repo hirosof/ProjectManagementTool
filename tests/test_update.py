@@ -165,3 +165,59 @@ def test_update_order_index_negative_value(temp_db: Database):
     cursor = conn.cursor()
     cursor.execute("SELECT order_index FROM subprojects WHERE id = ?", (sp.id,))
     assert cursor.fetchone()[0] == 0  # 初期値のまま
+
+
+def test_update_project_order_index(temp_db: Database):
+    """Project の order_index 更新が正しく動作すること"""
+    from pmtool.tui.commands import _update_order_index
+
+    # リポジトリ作成
+    project_repo = ProjectRepository(temp_db)
+
+    # Project 2つ作成
+    project1 = project_repo.create("Project1", "Description")
+    project2 = project_repo.create("Project2", "Description")
+
+    # 初期状態: Project1=0, Project2=1
+    assert project1.order_index == 0
+    assert project2.order_index == 1
+
+    # Project1 の order_index を 5 に変更
+    _update_order_index(temp_db, "project", project1.id, 5)
+
+    # 確認
+    conn = temp_db.connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT order_index FROM projects WHERE id = ?", (project1.id,))
+    assert cursor.fetchone()[0] == 5
+
+
+def test_update_order_index_duplicate_rejected_subtask(temp_db: Database):
+    """同一親配下で重複 order_index を拒否すること（SubTask）"""
+    from pmtool.tui.commands import _update_order_index
+
+    # リポジトリ作成
+    project_repo = ProjectRepository(temp_db)
+    subproject_repo = SubProjectRepository(temp_db)
+    task_repo = TaskRepository(temp_db)
+    subtask_repo = SubTaskRepository(temp_db)
+
+    # Project → SubProject → Task → SubTask 2つ作成
+    project = project_repo.create("TestProject", "Description")
+    subproject = subproject_repo.create(project.id, "TestSubProject", None, "Description")
+    task = task_repo.create(project.id, "Task", subproject.id, "Description")
+    subtask1 = subtask_repo.create(task.id, "SubTask1", "Description")
+    subtask2 = subtask_repo.create(task.id, "SubTask2", "Description")
+
+    # 初期状態: SubTask1=0, SubTask2=1
+    assert subtask1.order_index == 0
+    assert subtask2.order_index == 1
+
+    # SubTask2 の order_index を 0 に変更しようとする（SubTask1と重複）
+    _update_order_index(temp_db, "subtask", subtask2.id, 0)
+
+    # SubTask2 の order_index は変更されていないことを確認
+    conn = temp_db.connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT order_index FROM subtasks WHERE id = ?", (subtask2.id,))
+    assert cursor.fetchone()[0] == 1  # 初期値のまま（重複が拒否された）

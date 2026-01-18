@@ -718,11 +718,9 @@ def _update_project(
         updated = repo.update(project_id, name=name, description=description)
         console.print(f"[green]✓[/green] Project ID={project_id} を更新しました。")
 
-    # order_index更新（Projectにはorder_indexの論理的な意味がないため警告）
+    # order_index更新
     if order is not None:
-        console.print(
-            f"[yellow]警告: Project に order_index はありません。--order オプションは無視されます。[/yellow]"
-        )
+        _update_order_index(db, "project", project_id, order)
 
 
 def _update_subproject(
@@ -777,9 +775,11 @@ def _update_order_index(db: Database, entity_type: str, entity_id: int, new_orde
     """
     order_index を更新する
 
+    同一親配下での重複を防ぐため、更新前に重複チェックを行う。
+
     Args:
         db: Database インスタンス
-        entity_type: エンティティ種別 ("subproject" | "task" | "subtask")
+        entity_type: エンティティ種別 ("project" | "subproject" | "task" | "subtask")
         entity_id: エンティティID
         new_order: 新しいorder_index
     """
@@ -789,19 +789,57 @@ def _update_order_index(db: Database, entity_type: str, entity_id: int, new_orde
     try:
         # テーブル名を決定
         table_name = {
+            "project": "projects",
             "subproject": "subprojects",
             "task": "tasks",
             "subtask": "subtasks",
         }[entity_type]
 
-        # 存在確認
-        cursor.execute(f"SELECT order_index FROM {table_name} WHERE id = ?", (entity_id,))
-        row = cursor.fetchone()
-        if not row:
-            console.print(f"[red]エラー: {entity_type} ID={entity_id} は存在しません[/red]")
-            return
+        # 存在確認と現在の親情報を取得
+        if entity_type == "project":
+            cursor.execute("SELECT order_index FROM projects WHERE id = ?", (entity_id,))
+            row = cursor.fetchone()
+            if not row:
+                console.print(f"[red]エラー: {entity_type} ID={entity_id} は存在しません[/red]")
+                return
+            current_order = row[0]
+            parent_scope = None  # Projectは全体で一意
 
-        current_order = row[0]
+        elif entity_type == "subproject":
+            cursor.execute(
+                "SELECT order_index, project_id, parent_subproject_id FROM subprojects WHERE id = ?",
+                (entity_id,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                console.print(f"[red]エラー: {entity_type} ID={entity_id} は存在しません[/red]")
+                return
+            current_order, project_id, parent_subproject_id = row
+            parent_scope = (project_id, parent_subproject_id)
+
+        elif entity_type == "task":
+            cursor.execute(
+                "SELECT order_index, project_id, subproject_id FROM tasks WHERE id = ?",
+                (entity_id,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                console.print(f"[red]エラー: {entity_type} ID={entity_id} は存在しません[/red]")
+                return
+            current_order, project_id, subproject_id = row
+            parent_scope = (project_id, subproject_id)
+
+        elif entity_type == "subtask":
+            cursor.execute(
+                "SELECT order_index, task_id FROM subtasks WHERE id = ?",
+                (entity_id,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                console.print(f"[red]エラー: {entity_type} ID={entity_id} は存在しません[/red]")
+                return
+            current_order, task_id = row
+            parent_scope = (task_id,)
 
         # 既に同じ値の場合はスキップ
         if current_order == new_order:
@@ -811,6 +849,47 @@ def _update_order_index(db: Database, entity_type: str, entity_id: int, new_orde
         # 負の値チェック
         if new_order < 0:
             console.print(f"[red]エラー: order_index は 0 以上である必要があります[/red]")
+            return
+
+        # 重複チェック（同一親配下での重複を禁止）
+        if entity_type == "project":
+            cursor.execute(
+                "SELECT id FROM projects WHERE order_index = ? AND id != ?",
+                (new_order, entity_id)
+            )
+        elif entity_type == "subproject":
+            if parent_scope[1] is None:
+                cursor.execute(
+                    "SELECT id FROM subprojects WHERE project_id = ? AND parent_subproject_id IS NULL AND order_index = ? AND id != ?",
+                    (parent_scope[0], new_order, entity_id)
+                )
+            else:
+                cursor.execute(
+                    "SELECT id FROM subprojects WHERE project_id = ? AND parent_subproject_id = ? AND order_index = ? AND id != ?",
+                    (parent_scope[0], parent_scope[1], new_order, entity_id)
+                )
+        elif entity_type == "task":
+            if parent_scope[1] is None:
+                cursor.execute(
+                    "SELECT id FROM tasks WHERE project_id = ? AND subproject_id IS NULL AND order_index = ? AND id != ?",
+                    (parent_scope[0], new_order, entity_id)
+                )
+            else:
+                cursor.execute(
+                    "SELECT id FROM tasks WHERE project_id = ? AND subproject_id = ? AND order_index = ? AND id != ?",
+                    (parent_scope[0], parent_scope[1], new_order, entity_id)
+                )
+        elif entity_type == "subtask":
+            cursor.execute(
+                "SELECT id FROM subtasks WHERE task_id = ? AND order_index = ? AND id != ?",
+                (parent_scope[0], new_order, entity_id)
+            )
+
+        duplicate = cursor.fetchone()
+        if duplicate:
+            console.print(
+                f"[red]エラー: 同一親配下で order_index {new_order} は既に使用されています（ID={duplicate[0]}）[/red]"
+            )
             return
 
         # order_index 更新
