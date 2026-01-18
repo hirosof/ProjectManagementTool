@@ -54,13 +54,14 @@ def show_project_list(projects: list[Project]) -> None:
     console.print(table)
 
 
-def show_project_tree(db: Database, project_id: int) -> None:
+def show_project_tree(db: Database, project_id: int, use_emoji: bool = True) -> None:
     """
     指定したProjectの階層ツリーをRich Treeで表示
 
     Args:
         db: Database インスタンス
         project_id: 表示対象のProject ID
+        use_emoji: 絵文字を使用するかどうか（デフォルト: True）
     """
     # リポジトリ初期化
     proj_repo = ProjectRepository(db)
@@ -76,55 +77,61 @@ def show_project_tree(db: Database, project_id: int) -> None:
         )
         return
 
+    # 記号取得
+    project_symbol = formatters.get_entity_symbol("project", use_emoji)
+    subproject_symbol = formatters.get_entity_symbol("subproject", use_emoji)
+    task_symbol = formatters.get_entity_symbol("task", use_emoji)
+    subtask_symbol = formatters.get_entity_symbol("subtask", use_emoji)
+
     # Treeルート作成
     tree = Tree(
-        f"📦 [bold]{project.name}[/bold] (ID={project.id})", guide_style="dim"
+        f"{project_symbol} [bold]{project.name}[/bold] (ID={project.id})", guide_style="dim"
     )
 
     # SubProject取得・追加
     subprojects = subproj_repo.get_by_project(project_id)
     for subproj in subprojects:
-        subproj_node = tree.add(f"📁 {subproj.name} (ID={subproj.id})")
+        subproj_node = tree.add(f"{subproject_symbol} {subproj.name} (ID={subproj.id})")
 
         # Task取得・追加
         tasks = task_repo.get_by_parent(project_id=project_id, subproject_id=subproj.id)
         for task in tasks:
-            status_display = formatters.format_status(task.status)
+            status_display = formatters.format_status(task.status, use_emoji)
             task_node = subproj_node.add(
-                f"📝 {task.name} (ID={task.id}) {status_display}"
+                f"{task_symbol} {task.name} (ID={task.id}) {status_display}"
             )
 
             # SubTask取得・追加
             subtasks = subtask_repo.get_by_task(task.id)
             for subtask in subtasks:
-                subtask_status = formatters.format_status(subtask.status)
+                subtask_status = formatters.format_status(subtask.status, use_emoji)
                 task_node.add(
-                    f"✏️  {subtask.name} (ID={subtask.id}) {subtask_status}"
+                    f"{subtask_symbol}  {subtask.name} (ID={subtask.id}) {subtask_status}"
                 )
 
     # プロジェクト直下のTask（subproject_id=None）も追加（レビュー指摘B-9対応）
     direct_tasks = task_repo.get_by_parent(project_id=project_id, subproject_id=None)
     if direct_tasks:
         # 区画ノードを作成
-        direct_tasks_node = tree.add("📝 [dim]Tasks (direct)[/dim]")
+        direct_tasks_node = tree.add(f"{task_symbol} [dim]Tasks (direct)[/dim]")
         for task in direct_tasks:
-            status_display = formatters.format_status(task.status)
+            status_display = formatters.format_status(task.status, use_emoji)
             task_node = direct_tasks_node.add(
-                f"📝 {task.name} (ID={task.id}) {status_display}"
+                f"{task_symbol} {task.name} (ID={task.id}) {status_display}"
             )
 
             subtasks = subtask_repo.get_by_task(task.id)
             for subtask in subtasks:
-                subtask_status = formatters.format_status(subtask.status)
+                subtask_status = formatters.format_status(subtask.status, use_emoji)
                 task_node.add(
-                    f"✏️  {subtask.name} (ID={subtask.id}) {subtask_status}"
+                    f"{subtask_symbol}  {subtask.name} (ID={subtask.id}) {subtask_status}"
                 )
 
     console.print(tree)
 
 
 def show_dependencies(
-    entity_type: str, entity_id: int, predecessors: list, successors: list
+    entity_type: str, entity_id: int, predecessors: list, successors: list, use_emoji: bool = True
 ) -> None:
     """
     依存関係をシンプルなリスト表示
@@ -134,6 +141,7 @@ def show_dependencies(
         entity_id: 対象エンティティID
         predecessors: 先行ノードのリスト（TaskまたはSubTask）
         successors: 後続ノードのリスト
+        use_emoji: 絵文字を使用するかどうか（デフォルト: True）
 
     レビュー指摘B-7対応: 親文脈（project_id, subproject_id, task_id）を併記
     """
@@ -143,7 +151,7 @@ def show_dependencies(
     if predecessors:
         console.print("\n  [cyan]先行ノード（predecessor）:[/cyan]")
         for pred in predecessors:
-            status_display = formatters.format_status(pred.status)
+            status_display = formatters.format_status(pred.status, use_emoji)
             # 親文脈の表示
             if entity_type == "Task":
                 context = f"Project={pred.project_id}"
@@ -163,7 +171,7 @@ def show_dependencies(
     if successors:
         console.print("\n  [cyan]後続ノード（successor）:[/cyan]")
         for succ in successors:
-            status_display = formatters.format_status(succ.status)
+            status_display = formatters.format_status(succ.status, use_emoji)
             # 親文脈の表示
             if entity_type == "Task":
                 context = f"Project={succ.project_id}"

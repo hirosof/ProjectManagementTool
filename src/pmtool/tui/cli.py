@@ -39,11 +39,17 @@ def create_parser() -> argparse.ArgumentParser:
     # list コマンド
     list_parser = subparsers.add_parser("list", help="一覧表示")
     list_parser.add_argument("entity", choices=["projects"], help="表示対象")
+    list_parser.add_argument(
+        "--no-emoji", action="store_true", help="絵文字なしで表示"
+    )
 
     # show コマンド
     show_parser = subparsers.add_parser("show", help="ツリー表示")
     show_parser.add_argument("entity", choices=["project"], help="表示対象")
     show_parser.add_argument("id", type=int, help="エンティティID")
+    show_parser.add_argument(
+        "--no-emoji", action="store_true", help="絵文字なしで表示"
+    )
 
     # add コマンド
     add_parser = subparsers.add_parser("add", help="エンティティ追加")
@@ -139,6 +145,9 @@ def create_parser() -> argparse.ArgumentParser:
     deps_list = deps_subparsers.add_parser("list", help="依存関係一覧")
     deps_list.add_argument("entity", choices=["task", "subtask"])
     deps_list.add_argument("id", type=int, help="エンティティID")
+    deps_list.add_argument(
+        "--no-emoji", action="store_true", help="絵文字なしで表示"
+    )
 
     # doctor/check コマンド
     doctor_parser = subparsers.add_parser(

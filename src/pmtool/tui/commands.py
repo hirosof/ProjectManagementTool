@@ -59,9 +59,10 @@ def handle_show(db: Database, args: Namespace) -> None:
     """
     entity_type = args.entity
     entity_id = args.id
+    use_emoji = not getattr(args, "no_emoji", False)
 
     if entity_type == "project":
-        display.show_project_tree(db, entity_id)
+        display.show_project_tree(db, entity_id, use_emoji=use_emoji)
 
 
 # ===== add コマンド =====
@@ -930,7 +931,8 @@ def handle_deps(db: Database, args: Namespace) -> None:
     elif deps_command == "remove":
         _deps_remove(dep_manager, entity_type, args.from_id, args.to_id)
     elif deps_command == "list":
-        _deps_list(dep_manager, entity_type, args.id)
+        use_emoji = not getattr(args, "no_emoji", False)
+        _deps_list(dep_manager, entity_type, args.id, use_emoji)
 
 
 def _deps_add(
@@ -957,7 +959,7 @@ def _deps_remove(
         console.print(f"[green]✓[/green] SubTask依存関係削除: {from_id} → {to_id}")
 
 
-def _deps_list(dep_manager: DependencyManager, entity_type: str, entity_id: int) -> None:
+def _deps_list(dep_manager: DependencyManager, entity_type: str, entity_id: int, use_emoji: bool = True) -> None:
     """依存関係一覧表示"""
     from ..database import Database
 
@@ -976,7 +978,7 @@ def _deps_list(dep_manager: DependencyManager, entity_type: str, entity_id: int)
         predecessors = [t for t in predecessors if t is not None]
         successors = [t for t in successors if t is not None]
 
-        display.show_dependencies("Task", entity_id, predecessors, successors)
+        display.show_dependencies("Task", entity_id, predecessors, successors, use_emoji=use_emoji)
 
     elif entity_type == "subtask":
         # 依存関係ID取得
@@ -991,7 +993,7 @@ def _deps_list(dep_manager: DependencyManager, entity_type: str, entity_id: int)
         predecessors = [st for st in predecessors if st is not None]
         successors = [st for st in successors if st is not None]
 
-        display.show_dependencies("SubTask", entity_id, predecessors, successors)
+        display.show_dependencies("SubTask", entity_id, predecessors, successors, use_emoji=use_emoji)
 
 
 # ===== doctor/check コマンド =====
