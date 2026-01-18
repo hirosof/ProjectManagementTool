@@ -149,6 +149,28 @@ def create_parser() -> argparse.ArgumentParser:
         "--no-emoji", action="store_true", help="絵文字なしで表示"
     )
 
+    # deps graph
+    deps_graph = deps_subparsers.add_parser(
+        "graph", help="依存関係グラフ表示（direct predecessors/successors）"
+    )
+    deps_graph.add_argument("entity", choices=["task", "subtask"])
+    deps_graph.add_argument("id", type=int, help="エンティティID")
+
+    # deps chain
+    deps_chain = deps_subparsers.add_parser(
+        "chain", help="依存チェーン表示（from → to の経路）"
+    )
+    deps_chain.add_argument("entity", choices=["task", "subtask"])
+    deps_chain.add_argument("--from", dest="from_id", type=int, required=True, help="開始ノードID")
+    deps_chain.add_argument("--to", dest="to_id", type=int, required=True, help="終了ノードID")
+
+    # deps impact
+    deps_impact = deps_subparsers.add_parser(
+        "impact", help="影響範囲分析（DONEにすると解放されるノード）"
+    )
+    deps_impact.add_argument("entity", choices=["task", "subtask"])
+    deps_impact.add_argument("id", type=int, help="エンティティID")
+
     # doctor/check コマンド
     doctor_parser = subparsers.add_parser(
         "doctor", help="データベース整合性チェック", aliases=["check"]

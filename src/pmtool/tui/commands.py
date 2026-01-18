@@ -915,7 +915,7 @@ def handle_deps(db: Database, args: Namespace) -> None:
     """
     depsコマンドの処理
 
-    deps add/remove/list のサブコマンドに応じて依存関係を操作する。
+    deps add/remove/list/graph/chain/impact のサブコマンドに応じて依存関係を操作する。
 
     Args:
         db: Database インスタンス
@@ -933,6 +933,12 @@ def handle_deps(db: Database, args: Namespace) -> None:
     elif deps_command == "list":
         use_emoji = not getattr(args, "no_emoji", False)
         _deps_list(dep_manager, entity_type, args.id, use_emoji)
+    elif deps_command == "graph":
+        _deps_graph(db, dep_manager, entity_type, args.id)
+    elif deps_command == "chain":
+        _deps_chain(db, dep_manager, entity_type, args.from_id, args.to_id)
+    elif deps_command == "impact":
+        _deps_impact(db, dep_manager, entity_type, args.id)
 
 
 def _deps_add(
@@ -994,6 +1000,60 @@ def _deps_list(dep_manager: DependencyManager, entity_type: str, entity_id: int,
         successors = [st for st in successors if st is not None]
 
         display.show_dependencies("SubTask", entity_id, predecessors, successors, use_emoji=use_emoji)
+
+
+def _deps_graph(
+    db: Database, dep_manager: DependencyManager, entity_type: str, entity_id: int
+) -> None:
+    """依存関係グラフ表示（direct predecessors/successors）"""
+    if entity_type == "task":
+        deps = dep_manager.get_task_dependencies(entity_id)
+        display.show_dependency_graph_task(
+            db, entity_id, deps["predecessors"], deps["successors"]
+        )
+    elif entity_type == "subtask":
+        deps = dep_manager.get_subtask_dependencies(entity_id)
+        display.show_dependency_graph_subtask(
+            db, entity_id, deps["predecessors"], deps["successors"]
+        )
+
+
+def _deps_chain(
+    db: Database,
+    dep_manager: DependencyManager,
+    entity_type: str,
+    from_id: int,
+    to_id: int,
+) -> None:
+    """依存チェーン表示（from → to の経路）"""
+    if entity_type == "task":
+        path = dep_manager.find_path_between_tasks(from_id, to_id)
+        if path:
+            display.show_dependency_chain_task(db, path)
+        else:
+            console.print(
+                f"[yellow]Task {from_id} から Task {to_id} への依存経路は存在しません[/yellow]"
+            )
+    elif entity_type == "subtask":
+        path = dep_manager.find_path_between_subtasks(from_id, to_id)
+        if path:
+            display.show_dependency_chain_subtask(db, path)
+        else:
+            console.print(
+                f"[yellow]SubTask {from_id} から SubTask {to_id} への依存経路は存在しません[/yellow]"
+            )
+
+
+def _deps_impact(
+    db: Database, dep_manager: DependencyManager, entity_type: str, entity_id: int
+) -> None:
+    """影響範囲分析表示（DONEにすると解放されるノード）"""
+    if entity_type == "task":
+        all_successors = dep_manager.get_all_task_successors_recursive(entity_id)
+        display.show_impact_analysis_task(db, entity_id, all_successors)
+    elif entity_type == "subtask":
+        all_successors = dep_manager.get_all_subtask_successors_recursive(entity_id)
+        display.show_impact_analysis_subtask(db, entity_id, all_successors)
 
 
 # ===== doctor/check コマンド =====

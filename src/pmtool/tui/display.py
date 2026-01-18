@@ -221,3 +221,249 @@ def show_doctor_report(report: DoctorReport) -> None:
     # 正常時のメッセージ
     if report.is_healthy and report.warning_count == 0:
         console.print("[dim]問題は検出されませんでした[/dim]")
+
+
+def show_dependency_graph_task(
+    db: Database, task_id: int, predecessors: list[int], successors: list[int]
+) -> None:
+    """
+    Task依存関係グラフをRichで表示（direct predecessors/successors）
+
+    Args:
+        db: Database インスタンス
+        task_id: 対象TaskID
+        predecessors: 直接先行TaskIDリスト
+        successors: 直接後続TaskIDリスト
+    """
+    task_repo = TaskRepository(db)
+    subproj_repo = SubProjectRepository(db)
+    proj_repo = ProjectRepository(db)
+
+    # 対象Taskの情報取得
+    target_task = task_repo.get_by_id(task_id)
+    if not target_task:
+        console.print(f"[red]Task {task_id} が見つかりません[/red]")
+        return
+
+    console.print(f"\n[bold]=== Dependency Graph: Task {task_id} ===[/bold]\n")
+
+    # 直接先行ノード表示
+    console.print("[bold]Direct Predecessors (must be DONE first):[/bold]")
+    if predecessors:
+        for pred_id in predecessors:
+            pred_task = task_repo.get_by_id(pred_id)
+            if pred_task:
+                subproj = subproj_repo.get_by_id(pred_task.subproject_id)
+                proj = proj_repo.get_by_id(subproj.project_id) if subproj else None
+                status_symbol = formatters.format_task_status(pred_task.status)
+                proj_name = proj.name if proj else "?"
+                subproj_name = subproj.name if subproj else "?"
+                console.print(
+                    f"  → Task {pred_id} (in Project '{proj_name}' > SubProject '{subproj_name}') {status_symbol}"
+                )
+    else:
+        console.print("  [dim](なし)[/dim]")
+
+    console.print()
+
+    # 直接後続ノード表示
+    console.print("[bold]Direct Successors (waiting for this task):[/bold]")
+    if successors:
+        for succ_id in successors:
+            succ_task = task_repo.get_by_id(succ_id)
+            if succ_task:
+                subproj = subproj_repo.get_by_id(succ_task.subproject_id)
+                proj = proj_repo.get_by_id(subproj.project_id) if subproj else None
+                status_symbol = formatters.format_task_status(succ_task.status)
+                proj_name = proj.name if proj else "?"
+                subproj_name = subproj.name if subproj else "?"
+                console.print(
+                    f"  → Task {succ_id} (in Project '{proj_name}' > SubProject '{subproj_name}') {status_symbol}"
+                )
+    else:
+        console.print("  [dim](なし)[/dim]")
+
+    console.print()
+
+
+def show_dependency_graph_subtask(
+    db: Database, subtask_id: int, predecessors: list[int], successors: list[int]
+) -> None:
+    """
+    SubTask依存関係グラフをRichで表示（direct predecessors/successors）
+
+    Args:
+        db: Database インスタンス
+        subtask_id: 対象SubTaskID
+        predecessors: 直接先行SubTaskIDリスト
+        successors: 直接後続SubTaskIDリスト
+    """
+    subtask_repo = SubTaskRepository(db)
+    task_repo = TaskRepository(db)
+
+    # 対象SubTaskの情報取得
+    target_subtask = subtask_repo.get_by_id(subtask_id)
+    if not target_subtask:
+        console.print(f"[red]SubTask {subtask_id} が見つかりません[/red]")
+        return
+
+    console.print(f"\n[bold]=== Dependency Graph: SubTask {subtask_id} ===[/bold]\n")
+
+    # 直接先行ノード表示
+    console.print("[bold]Direct Predecessors (must be DONE first):[/bold]")
+    if predecessors:
+        for pred_id in predecessors:
+            pred_subtask = subtask_repo.get_by_id(pred_id)
+            if pred_subtask:
+                parent_task = task_repo.get_by_id(pred_subtask.task_id)
+                status_symbol = formatters.format_subtask_status(pred_subtask.status)
+                parent_task_name = parent_task.name if parent_task else "?"
+                console.print(
+                    f"  → SubTask {pred_id} (in Task '{parent_task_name}') {status_symbol}"
+                )
+    else:
+        console.print("  [dim](なし)[/dim]")
+
+    console.print()
+
+    # 直接後続ノード表示
+    console.print("[bold]Direct Successors (waiting for this subtask):[/bold]")
+    if successors:
+        for succ_id in successors:
+            succ_subtask = subtask_repo.get_by_id(succ_id)
+            if succ_subtask:
+                parent_task = task_repo.get_by_id(succ_subtask.task_id)
+                status_symbol = formatters.format_subtask_status(succ_subtask.status)
+                parent_task_name = parent_task.name if parent_task else "?"
+                console.print(
+                    f"  → SubTask {succ_id} (in Task '{parent_task_name}') {status_symbol}"
+                )
+    else:
+        console.print("  [dim](なし)[/dim]")
+
+    console.print()
+
+
+def show_dependency_chain_task(db: Database, path: list[int]) -> None:
+    """
+    Task依存チェーンをRichで表示
+
+    Args:
+        db: Database インスタンス
+        path: TaskIDのリスト [from, ..., to]
+    """
+    task_repo = TaskRepository(db)
+
+    console.print(f"\n[bold]=== Dependency Chain ===[/bold]\n")
+
+    for i, task_id in enumerate(path):
+        task = task_repo.get_by_id(task_id)
+        if task:
+            status_symbol = formatters.format_task_status(task.status)
+            console.print(f"  Task {task_id}: {task.name} {status_symbol}")
+            if i < len(path) - 1:
+                console.print("    ↓")
+
+    console.print()
+
+
+def show_dependency_chain_subtask(db: Database, path: list[int]) -> None:
+    """
+    SubTask依存チェーンをRichで表示
+
+    Args:
+        db: Database インスタンス
+        path: SubTaskIDのリスト [from, ..., to]
+    """
+    subtask_repo = SubTaskRepository(db)
+
+    console.print(f"\n[bold]=== Dependency Chain ===[/bold]\n")
+
+    for i, subtask_id in enumerate(path):
+        subtask = subtask_repo.get_by_id(subtask_id)
+        if subtask:
+            status_symbol = formatters.format_subtask_status(subtask.status)
+            console.print(f"  SubTask {subtask_id}: {subtask.name} {status_symbol}")
+            if i < len(path) - 1:
+                console.print("    ↓")
+
+    console.print()
+
+
+def show_impact_analysis_task(db: Database, task_id: int, all_successors: list[int]) -> None:
+    """
+    Task影響範囲分析をRichで表示（DONEにすると解放されるノード）
+
+    Args:
+        db: Database インスタンス
+        task_id: 対象TaskID
+        all_successors: 全後続TaskIDリスト（間接も含む）
+    """
+    task_repo = TaskRepository(db)
+    subproj_repo = SubProjectRepository(db)
+    proj_repo = ProjectRepository(db)
+
+    target_task = task_repo.get_by_id(task_id)
+    if not target_task:
+        console.print(f"[red]Task {task_id} が見つかりません[/red]")
+        return
+
+    console.print(f"\n[bold]=== Impact Analysis: Task {task_id} ===[/bold]\n")
+    console.print(f"[bold]Affected Tasks (will be unblocked when Task {task_id} is DONE):[/bold]")
+
+    if all_successors:
+        for succ_id in all_successors:
+            succ_task = task_repo.get_by_id(succ_id)
+            if succ_task:
+                subproj = subproj_repo.get_by_id(succ_task.subproject_id)
+                proj = proj_repo.get_by_id(subproj.project_id) if subproj else None
+                status_symbol = formatters.format_task_status(succ_task.status)
+                proj_name = proj.name if proj else "?"
+                subproj_name = subproj.name if subproj else "?"
+                console.print(
+                    f"  → Task {succ_id}: {succ_task.name} (in Project '{proj_name}' > SubProject '{subproj_name}') {status_symbol}"
+                )
+    else:
+        console.print("  [dim](影響を受けるTaskはありません)[/dim]")
+
+    console.print()
+
+
+def show_impact_analysis_subtask(
+    db: Database, subtask_id: int, all_successors: list[int]
+) -> None:
+    """
+    SubTask影響範囲分析をRichで表示（DONEにすると解放されるノード）
+
+    Args:
+        db: Database インスタンス
+        subtask_id: 対象SubTaskID
+        all_successors: 全後続SubTaskIDリスト（間接も含む）
+    """
+    subtask_repo = SubTaskRepository(db)
+    task_repo = TaskRepository(db)
+
+    target_subtask = subtask_repo.get_by_id(subtask_id)
+    if not target_subtask:
+        console.print(f"[red]SubTask {subtask_id} が見つかりません[/red]")
+        return
+
+    console.print(f"\n[bold]=== Impact Analysis: SubTask {subtask_id} ===[/bold]\n")
+    console.print(
+        f"[bold]Affected SubTasks (will be unblocked when SubTask {subtask_id} is DONE):[/bold]"
+    )
+
+    if all_successors:
+        for succ_id in all_successors:
+            succ_subtask = subtask_repo.get_by_id(succ_id)
+            if succ_subtask:
+                parent_task = task_repo.get_by_id(succ_subtask.task_id)
+                status_symbol = formatters.format_subtask_status(succ_subtask.status)
+                parent_task_name = parent_task.name if parent_task else "?"
+                console.print(
+                    f"  → SubTask {succ_id}: {succ_subtask.name} (in Task '{parent_task_name}') {status_symbol}"
+                )
+    else:
+        console.print("  [dim](影響を受けるSubTaskはありません)[/dim]")
+
+    console.print()

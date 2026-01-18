@@ -591,3 +591,171 @@ class DependencyManager:
             if own_conn:
                 conn.rollback()
             raise
+
+    def find_path_between_tasks(
+        self, from_task_id: int, to_task_id: int
+    ) -> Optional[list[int]]:
+        """
+        2つのTask間の依存経路を探索（BFS）
+
+        Args:
+            from_task_id: 開始TaskID
+            to_task_id: 終了TaskID
+
+        Returns:
+            Optional[list[int]]: 経路が存在する場合、TaskIDのリスト [from, ..., to]
+                                 経路が存在しない場合、None
+        """
+        conn = self.db.connect()
+        cursor = conn.cursor()
+
+        # BFSで経路探索
+        queue = deque([(from_task_id, [from_task_id])])
+        visited = {from_task_id}
+
+        while queue:
+            current_id, path = queue.popleft()
+
+            # 目的地に到達した
+            if current_id == to_task_id:
+                return path
+
+            # 後続ノードを探索
+            cursor.execute(
+                """
+                SELECT successor_id FROM task_dependencies
+                WHERE predecessor_id = ?
+                """,
+                (current_id,),
+            )
+            successors = [row["successor_id"] for row in cursor.fetchall()]
+
+            for succ_id in successors:
+                if succ_id not in visited:
+                    visited.add(succ_id)
+                    queue.append((succ_id, path + [succ_id]))
+
+        # 経路が見つからなかった
+        return None
+
+    def find_path_between_subtasks(
+        self, from_subtask_id: int, to_subtask_id: int
+    ) -> Optional[list[int]]:
+        """
+        2つのSubTask間の依存経路を探索（BFS）
+
+        Args:
+            from_subtask_id: 開始SubTaskID
+            to_subtask_id: 終了SubTaskID
+
+        Returns:
+            Optional[list[int]]: 経路が存在する場合、SubTaskIDのリスト [from, ..., to]
+                                 経路が存在しない場合、None
+        """
+        conn = self.db.connect()
+        cursor = conn.cursor()
+
+        # BFSで経路探索
+        queue = deque([(from_subtask_id, [from_subtask_id])])
+        visited = {from_subtask_id}
+
+        while queue:
+            current_id, path = queue.popleft()
+
+            # 目的地に到達した
+            if current_id == to_subtask_id:
+                return path
+
+            # 後続ノードを探索
+            cursor.execute(
+                """
+                SELECT successor_id FROM subtask_dependencies
+                WHERE predecessor_id = ?
+                """,
+                (current_id,),
+            )
+            successors = [row["successor_id"] for row in cursor.fetchall()]
+
+            for succ_id in successors:
+                if succ_id not in visited:
+                    visited.add(succ_id)
+                    queue.append((succ_id, path + [succ_id]))
+
+        # 経路が見つからなかった
+        return None
+
+    def get_all_task_successors_recursive(self, task_id: int) -> list[int]:
+        """
+        指定されたTaskの全後続ノード（間接的な後続も含む）を取得
+
+        Args:
+            task_id: TaskID
+
+        Returns:
+            list[int]: 後続TaskIDのリスト（重複なし、順不同）
+        """
+        conn = self.db.connect()
+        cursor = conn.cursor()
+
+        all_successors = set()
+        queue = deque([task_id])
+        visited = {task_id}
+
+        while queue:
+            current_id = queue.popleft()
+
+            # 直接の後続ノードを取得
+            cursor.execute(
+                """
+                SELECT successor_id FROM task_dependencies
+                WHERE predecessor_id = ?
+                """,
+                (current_id,),
+            )
+            successors = [row["successor_id"] for row in cursor.fetchall()]
+
+            for succ_id in successors:
+                all_successors.add(succ_id)
+                if succ_id not in visited:
+                    visited.add(succ_id)
+                    queue.append(succ_id)
+
+        return list(all_successors)
+
+    def get_all_subtask_successors_recursive(self, subtask_id: int) -> list[int]:
+        """
+        指定されたSubTaskの全後続ノード（間接的な後続も含む）を取得
+
+        Args:
+            subtask_id: SubTaskID
+
+        Returns:
+            list[int]: 後続SubTaskIDのリスト（重複なし、順不同）
+        """
+        conn = self.db.connect()
+        cursor = conn.cursor()
+
+        all_successors = set()
+        queue = deque([subtask_id])
+        visited = {subtask_id}
+
+        while queue:
+            current_id = queue.popleft()
+
+            # 直接の後続ノードを取得
+            cursor.execute(
+                """
+                SELECT successor_id FROM subtask_dependencies
+                WHERE predecessor_id = ?
+                """,
+                (current_id,),
+            )
+            successors = [row["successor_id"] for row in cursor.fetchall()]
+
+            for succ_id in successors:
+                all_successors.add(succ_id)
+                if succ_id not in visited:
+                    visited.add(succ_id)
+                    queue.append(succ_id)
+
+        return list(all_successors)
