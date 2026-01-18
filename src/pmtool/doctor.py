@@ -448,6 +448,47 @@ class Doctor:
         conn = self.db.connect()
         cursor = conn.cursor()
 
+        # ステータス値の不正チェック（Phase 4 で追加）
+        # Task の不正なステータス値
+        cursor.execute("""
+            SELECT id, name, status
+            FROM tasks
+            WHERE status NOT IN ('UNSET', 'NOT_STARTED', 'IN_PROGRESS', 'DONE')
+        """)
+        for row in cursor.fetchall():
+            issues.append(
+                Issue(
+                    level=IssueLevel.ERROR,
+                    code="STATUS_INVALID001",
+                    message=f"Task {row[0]} のステータスが不正です: '{row[2]}'",
+                    details={
+                        "task_id": row[0],
+                        "task_name": row[1],
+                        "invalid_status": row[2],
+                    },
+                )
+            )
+
+        # SubTask の不正なステータス値
+        cursor.execute("""
+            SELECT id, name, status
+            FROM subtasks
+            WHERE status NOT IN ('UNSET', 'NOT_STARTED', 'IN_PROGRESS', 'DONE')
+        """)
+        for row in cursor.fetchall():
+            issues.append(
+                Issue(
+                    level=IssueLevel.ERROR,
+                    code="STATUS_INVALID002",
+                    message=f"SubTask {row[0]} のステータスが不正です: '{row[2]}'",
+                    details={
+                        "subtask_id": row[0],
+                        "subtask_name": row[1],
+                        "invalid_status": row[2],
+                    },
+                )
+            )
+
         # 子SubTaskが未完了なのに親TaskがDONEの場合
         cursor.execute("""
             SELECT t.id, t.name, COUNT(st.id) as incomplete_count
@@ -522,7 +563,7 @@ class Doctor:
 
     def _check_order_index(self) -> List[Issue]:
         """
-        order_index 異常チェック（重複・欠番）
+        order_index 異常チェック（重複・負値・欠番）
 
         Returns:
             List[Issue]: 検出された問題のリスト
@@ -530,6 +571,70 @@ class Doctor:
         issues = []
         conn = self.db.connect()
         cursor = conn.cursor()
+
+        # --- 負値チェック（Phase 4 で追加） ---
+
+        # SubProject の order_index 負値チェック
+        cursor.execute("""
+            SELECT id, name, order_index
+            FROM subprojects
+            WHERE order_index < 0
+        """)
+        for row in cursor.fetchall():
+            issues.append(
+                Issue(
+                    level=IssueLevel.ERROR,
+                    code="ORDER_NEG001",
+                    message=f"SubProject {row[0]} の order_index が負の値です: {row[2]}",
+                    details={
+                        "subproject_id": row[0],
+                        "subproject_name": row[1],
+                        "order_index": row[2],
+                    },
+                )
+            )
+
+        # Task の order_index 負値チェック
+        cursor.execute("""
+            SELECT id, name, order_index
+            FROM tasks
+            WHERE order_index < 0
+        """)
+        for row in cursor.fetchall():
+            issues.append(
+                Issue(
+                    level=IssueLevel.ERROR,
+                    code="ORDER_NEG002",
+                    message=f"Task {row[0]} の order_index が負の値です: {row[2]}",
+                    details={
+                        "task_id": row[0],
+                        "task_name": row[1],
+                        "order_index": row[2],
+                    },
+                )
+            )
+
+        # SubTask の order_index 負値チェック
+        cursor.execute("""
+            SELECT id, name, order_index
+            FROM subtasks
+            WHERE order_index < 0
+        """)
+        for row in cursor.fetchall():
+            issues.append(
+                Issue(
+                    level=IssueLevel.ERROR,
+                    code="ORDER_NEG003",
+                    message=f"SubTask {row[0]} の order_index が負の値です: {row[2]}",
+                    details={
+                        "subtask_id": row[0],
+                        "subtask_name": row[1],
+                        "order_index": row[2],
+                    },
+                )
+            )
+
+        # --- 重複チェック ---
 
         # SubProject の order_index 重複チェック
         # 注: parent_subproject_id も考慮する必要がある（親が異なれば別の文脈）
