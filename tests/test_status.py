@@ -26,7 +26,7 @@ def test_status_transition_to_done_success(temp_db: Database):
     status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "")
-    task = task_repo.create(project.id, None, "Task", "")
+    task = task_repo.create(project.id, "Task", None, "")
 
     # 先行タスクなし、子SubTaskなしの状態でDONEに遷移
     updated = status_mgr.update_task_status(task.id, "DONE")
@@ -43,8 +43,8 @@ def test_status_transition_to_done_with_prerequisite_not_done(temp_db: Database)
     status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "")
-    task1 = task_repo.create(project.id, None, "Task 1", "")
-    task2 = task_repo.create(project.id, None, "Task 2", "")
+    task1 = task_repo.create(project.id, "Task 1", None, "")
+    task2 = task_repo.create(project.id, "Task 2", None, "")
 
     # task1 → task2 の依存関係
     dep_mgr.add_task_dependency(task1.id, task2.id)
@@ -66,7 +66,7 @@ def test_status_transition_to_done_with_child_not_done(temp_db: Database):
     status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "")
-    task = task_repo.create(project.id, None, "Task", "")
+    task = task_repo.create(project.id, "Task", None, "")
     subtask = subtask_repo.create(task.id, "SubTask", "")
 
     # SubTaskがNOT_STARTEDの状態でTaskをDONEにしようとするとエラー
@@ -86,8 +86,8 @@ def test_status_transition_to_done_with_all_conditions_met(temp_db: Database):
     status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "")
-    task1 = task_repo.create(project.id, None, "Task 1", "")
-    task2 = task_repo.create(project.id, None, "Task 2", "")
+    task1 = task_repo.create(project.id, "Task 1", None, "")
+    task2 = task_repo.create(project.id, "Task 2", None, "")
     subtask = subtask_repo.create(task2.id, "SubTask", "")
 
     # task1 → task2 の依存関係
@@ -113,7 +113,7 @@ def test_status_transition_to_in_progress(temp_db: Database):
     status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "")
-    task = task_repo.create(project.id, None, "Task", "")
+    task = task_repo.create(project.id, "Task", None, "")
 
     # IN_PROGRESSに遷移
     updated = status_mgr.update_task_status(task.id, "IN_PROGRESS")
@@ -129,7 +129,7 @@ def test_status_transition_to_not_started(temp_db: Database):
     status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "")
-    task = task_repo.create(project.id, None, "Task", "")
+    task = task_repo.create(project.id, "Task", None, "")
 
     # IN_PROGRESSにしてから NOT_STARTED に戻す
     status_mgr.update_task_status(task.id, "IN_PROGRESS")
@@ -147,8 +147,8 @@ def test_status_transition_error_contains_reason_code(temp_db: Database):
     status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "")
-    task1 = task_repo.create(project.id, None, "Task 1", "")
-    task2 = task_repo.create(project.id, None, "Task 2", "")
+    task1 = task_repo.create(project.id, "Task 1", None, "")
+    task2 = task_repo.create(project.id, "Task 2", None, "")
 
     # task1 → task2
     dep_mgr.add_task_dependency(task1.id, task2.id)
@@ -173,7 +173,7 @@ def test_subtask_status_transition_to_done(temp_db: Database):
     status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "")
-    task = task_repo.create(project.id, None, "Task", "")
+    task = task_repo.create(project.id, "Task", None, "")
     subtask = subtask_repo.create(task.id, "SubTask", "")
 
     # SubTaskをDONEにする（先行SubTaskがなければ可能）
@@ -191,7 +191,7 @@ def test_subtask_status_transition_with_prerequisite(temp_db: Database):
     status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "")
-    task = task_repo.create(project.id, None, "Task", "")
+    task = task_repo.create(project.id, "Task", None, "")
     st1 = subtask_repo.create(task.id, "SubTask 1", "")
     st2 = subtask_repo.create(task.id, "SubTask 2", "")
 

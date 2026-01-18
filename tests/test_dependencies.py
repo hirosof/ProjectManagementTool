@@ -28,8 +28,8 @@ def test_add_task_dependency(temp_db: Database):
     dep_mgr = DependencyManager(temp_db)
 
     project = proj_repo.create("Project", "")
-    task1 = task_repo.create(project.id, None, "Task 1", "")
-    task2 = task_repo.create(project.id, None, "Task 2", "")
+    task1 = task_repo.create(project.id, "Task 1", None, "")
+    task2 = task_repo.create(project.id, "Task 2", None, "")
 
     # 依存関係追加: task1 → task2
     dep_mgr.add_task_dependency(task1.id, task2.id)
@@ -50,7 +50,7 @@ def test_add_subtask_dependency(temp_db: Database):
     dep_mgr = DependencyManager(temp_db)
 
     project = proj_repo.create("Project", "")
-    task = task_repo.create(project.id, None, "Task", "")
+    task = task_repo.create(project.id, "Task", "")
     subtask1 = subtask_repo.create(task.id, "SubTask 1", "")
     subtask2 = subtask_repo.create(task.id, "SubTask 2", "")
 
@@ -71,8 +71,8 @@ def test_cyclic_dependency_detected_direct(temp_db: Database):
     dep_mgr = DependencyManager(temp_db)
 
     project = proj_repo.create("Project", "")
-    task_a = task_repo.create(project.id, None, "Task A", "")
-    task_b = task_repo.create(project.id, None, "Task B", "")
+    task_a = task_repo.create(project.id, "Task A", None, "")
+    task_b = task_repo.create(project.id, "Task B", None, "")
 
     # A → B
     dep_mgr.add_task_dependency(task_a.id, task_b.id)
@@ -92,9 +92,9 @@ def test_cyclic_dependency_detected_indirect(temp_db: Database):
     dep_mgr = DependencyManager(temp_db)
 
     project = proj_repo.create("Project", "")
-    task_a = task_repo.create(project.id, None, "Task A", "")
-    task_b = task_repo.create(project.id, None, "Task B", "")
-    task_c = task_repo.create(project.id, None, "Task C", "")
+    task_a = task_repo.create(project.id, "Task A", None, "")
+    task_b = task_repo.create(project.id, "Task B", None, "")
+    task_c = task_repo.create(project.id, "Task C", None, "")
 
     # A → B → C
     dep_mgr.add_task_dependency(task_a.id, task_b.id)
@@ -113,7 +113,7 @@ def test_self_dependency_rejected(temp_db: Database):
     dep_mgr = DependencyManager(temp_db)
 
     project = proj_repo.create("Project", "")
-    task = task_repo.create(project.id, None, "Task", "")
+    task = task_repo.create(project.id, "Task", "")
 
     # 自己依存を追加しようとするとエラー
     with pytest.raises(CyclicDependencyError):
@@ -128,8 +128,8 @@ def test_remove_task_dependency(temp_db: Database):
     dep_mgr = DependencyManager(temp_db)
 
     project = proj_repo.create("Project", "")
-    task1 = task_repo.create(project.id, None, "Task 1", "")
-    task2 = task_repo.create(project.id, None, "Task 2", "")
+    task1 = task_repo.create(project.id, "Task 1", None, "")
+    task2 = task_repo.create(project.id, "Task 2", None, "")
 
     # 依存関係追加: task1 → task2
     dep_mgr.add_task_dependency(task1.id, task2.id)
@@ -150,9 +150,9 @@ def test_bridge_dependencies_on_task_delete(temp_db: Database):
     dep_mgr = DependencyManager(temp_db)
 
     project = proj_repo.create("Project", "")
-    task_a = task_repo.create(project.id, None, "Task A", "")
-    task_b = task_repo.create(project.id, None, "Task B", "")
-    task_c = task_repo.create(project.id, None, "Task C", "")
+    task_a = task_repo.create(project.id, "Task A", None, "")
+    task_b = task_repo.create(project.id, "Task B", None, "")
+    task_c = task_repo.create(project.id, "Task C", None, "")
 
     # A → B → C
     dep_mgr.add_task_dependency(task_a.id, task_b.id)
@@ -176,7 +176,7 @@ def test_bridge_dependencies_on_subtask_delete(temp_db: Database):
     dep_mgr = DependencyManager(temp_db)
 
     project = proj_repo.create("Project", "")
-    task = task_repo.create(project.id, None, "Task", "")
+    task = task_repo.create(project.id, "Task", "")
     st_a = subtask_repo.create(task.id, "SubTask A", "")
     st_b = subtask_repo.create(task.id, "SubTask B", "")
     st_c = subtask_repo.create(task.id, "SubTask C", "")
@@ -202,10 +202,10 @@ def test_multiple_predecessors_and_successors(temp_db: Database):
     dep_mgr = DependencyManager(temp_db)
 
     project = proj_repo.create("Project", "")
-    task1 = task_repo.create(project.id, None, "Task 1", "")
-    task2 = task_repo.create(project.id, None, "Task 2", "")
-    task3 = task_repo.create(project.id, None, "Task 3", "")
-    task4 = task_repo.create(project.id, None, "Task 4", "")
+    task1 = task_repo.create(project.id, "Task 1", None, "")
+    task2 = task_repo.create(project.id, "Task 2", None, "")
+    task3 = task_repo.create(project.id, "Task 3", None, "")
+    task4 = task_repo.create(project.id, "Task 4", None, "")
 
     # 1 → 3, 2 → 3, 3 → 4
     dep_mgr.add_task_dependency(task1.id, task3.id)

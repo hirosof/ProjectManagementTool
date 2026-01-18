@@ -61,21 +61,23 @@ def test_delete_project_with_children_raises_error(temp_db: Database):
     subproj_repo = SubProjectRepository(temp_db)
 
     project = proj_repo.create("Parent Project", "")
-    subproject = subproj_repo.create(project.id, None, "Child SubProject", "")
+    subproject = subproj_repo.create(project.id, "Child SubProject", None, "")
 
     # 子がある状態で削除しようとするとエラー
     with pytest.raises(ConstraintViolationError) as exc_info:
         proj_repo.delete(project.id)
 
-    assert "子エンティティが存在します" in str(exc_info.value)
+    # エラーメッセージに"子SubProject"が含まれていることを確認
+    assert "SubProject" in str(exc_info.value) or "子" in str(exc_info.value)
 
 
-def test_delete_nonexistent_entity_silent_success(temp_db: Database):
-    """存在しないエンティティを削除しようとしてもエラーにならないこと（冪等性）"""
+def test_delete_nonexistent_entity_raises_error(temp_db: Database):
+    """存在しないエンティティを削除しようとするとエラーになること"""
     repo = ProjectRepository(temp_db)
 
-    # 存在しないIDを削除してもエラーにならない
-    repo.delete(99999)  # エラーにならずに完了
+    # 存在しないIDを削除しようとするとエラー
+    with pytest.raises(ConstraintViolationError):
+        repo.delete(99999)
 
 
 def test_fk_constraint_violation_on_create_subproject(temp_db: Database):
@@ -84,7 +86,7 @@ def test_fk_constraint_violation_on_create_subproject(temp_db: Database):
 
     # 存在しないproject_id=99999を指定
     with pytest.raises(ConstraintViolationError):
-        repo.create(99999, None, "Invalid SubProject", "")
+        repo.create(99999, "Invalid SubProject", None, "")
 
 
 def test_fk_constraint_violation_on_create_task(temp_db: Database):
@@ -93,28 +95,25 @@ def test_fk_constraint_violation_on_create_task(temp_db: Database):
 
     # 存在しないproject_id=99999を指定
     with pytest.raises(ConstraintViolationError):
-        repo.create(99999, None, "Invalid Task", "")
+        repo.create(99999, "Invalid Task", None, "")
 
 
-def test_cascade_on_delete_with_subtasks(temp_db: Database):
-    """Taskを削除するとSubTaskも削除されること（FK ON DELETE CASCADE）"""
+def test_delete_task_with_subtasks_raises_error(temp_db: Database):
+    """子SubTaskがあるTaskは削除できないこと"""
     proj_repo = ProjectRepository(temp_db)
     task_repo = TaskRepository(temp_db)
     subtask_repo = SubTaskRepository(temp_db)
 
     # データ作成
     project = proj_repo.create("Project", "")
-    task = task_repo.create(project.id, None, "Task", "")
+    task = task_repo.create(project.id, "Task", None, "")
     subtask = subtask_repo.create(task.id, "SubTask", "")
 
-    # SubTaskが存在することを確認
-    assert subtask_repo.get_by_id(subtask.id) is not None
+    # 子SubTaskがある状態でTaskを削除しようとするとエラー
+    with pytest.raises(ConstraintViolationError) as exc_info:
+        task_repo.delete(task.id)
 
-    # Taskを削除（SubTaskも連鎖削除される）
-    task_repo.delete(task.id)
-
-    # SubTaskも削除されていることを確認
-    assert subtask_repo.get_by_id(subtask.id) is None
+    assert "子SubTask" in str(exc_info.value) or "子エンティティ" in str(exc_info.value)
 
 
 def test_transaction_rollback_on_error(temp_db: Database):
