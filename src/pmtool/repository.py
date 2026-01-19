@@ -271,6 +271,153 @@ class ProjectRepository:
             conn.rollback()
             raise
 
+    def cascade_delete(
+        self, project_id: int, dry_run: bool = False, conn: Optional[sqlite3.Connection] = None
+    ) -> dict:
+        """
+        Projectを子要素も含めて連鎖削除（Phase 4 実装）
+
+        子SubProject、Task、SubTaskを再帰的に削除します。
+        依存関係はON DELETE CASCADEにより自動削除されます。
+
+        Args:
+            project_id: プロジェクトID
+            dry_run: True の場合、削除対象を収集するのみで実際には削除しない
+            conn: 既存のコネクション（トランザクション共有用）
+
+        Returns:
+            dict: 削除結果 {
+                'projects': 削除されるProject数,
+                'subprojects': 削除されるSubProject数,
+                'tasks': 削除されるTask数,
+                'subtasks': 削除されるSubTask数,
+                'task_dependencies': 削除されるTask依存関係数,
+                'subtask_dependencies': 削除されるSubTask依存関係数
+            }
+
+        Raises:
+            ConstraintViolationError: Projectが存在しない場合
+        """
+        own_conn = False
+        if conn is None:
+            conn = self.db.connect()
+            own_conn = True
+
+        try:
+            cursor = conn.cursor()
+
+            # Projectの存在確認
+            cursor.execute("SELECT id FROM projects WHERE id = ?", (project_id,))
+            if not cursor.fetchone():
+                raise ConstraintViolationError(f"プロジェクトID {project_id} は存在しません")
+
+            # 削除対象の収集
+            # SubProject配下のTaskを取得
+            cursor.execute(
+                """
+                SELECT t.id FROM tasks t
+                INNER JOIN subprojects sp ON t.subproject_id = sp.id
+                WHERE sp.project_id = ?
+                """,
+                (project_id,),
+            )
+            task_ids_from_subprojects = [row[0] for row in cursor.fetchall()]
+
+            # Project直下のTaskを取得
+            cursor.execute(
+                "SELECT id FROM tasks WHERE project_id = ? AND subproject_id IS NULL",
+                (project_id,),
+            )
+            task_ids_direct = [row[0] for row in cursor.fetchall()]
+
+            all_task_ids = task_ids_from_subprojects + task_ids_direct
+
+            # SubTaskを取得
+            if all_task_ids:
+                placeholders = ",".join("?" * len(all_task_ids))
+                cursor.execute(
+                    f"SELECT id FROM subtasks WHERE task_id IN ({placeholders})",
+                    all_task_ids,
+                )
+                subtask_ids = [row[0] for row in cursor.fetchall()]
+            else:
+                subtask_ids = []
+
+            # SubProjectを取得
+            cursor.execute("SELECT id FROM subprojects WHERE project_id = ?", (project_id,))
+            subproject_ids = [row[0] for row in cursor.fetchall()]
+
+            # 依存関係数を取得
+            if all_task_ids:
+                placeholders = ",".join("?" * len(all_task_ids))
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(*) FROM task_dependencies
+                    WHERE predecessor_id IN ({placeholders}) OR successor_id IN ({placeholders})
+                    """,
+                    all_task_ids + all_task_ids,
+                )
+                task_dep_count = cursor.fetchone()[0]
+            else:
+                task_dep_count = 0
+
+            if subtask_ids:
+                placeholders = ",".join("?" * len(subtask_ids))
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(*) FROM subtask_dependencies
+                    WHERE predecessor_id IN ({placeholders}) OR successor_id IN ({placeholders})
+                    """,
+                    subtask_ids + subtask_ids,
+                )
+                subtask_dep_count = cursor.fetchone()[0]
+            else:
+                subtask_dep_count = 0
+
+            result = {
+                "projects": 1,
+                "subprojects": len(subproject_ids),
+                "tasks": len(all_task_ids),
+                "subtasks": len(subtask_ids),
+                "task_dependencies": task_dep_count,
+                "subtask_dependencies": subtask_dep_count,
+            }
+
+            if dry_run:
+                # dry-runモード: rollback して結果を返す
+                if own_conn:
+                    conn.rollback()
+                return result
+
+            # 実削除: 子→親の順で削除
+            # SubTask削除（依存関係は ON DELETE CASCADE で自動削除）
+            if subtask_ids:
+                placeholders = ",".join("?" * len(subtask_ids))
+                cursor.execute(f"DELETE FROM subtasks WHERE id IN ({placeholders})", subtask_ids)
+
+            # Task削除（依存関係は ON DELETE CASCADE で自動削除）
+            if all_task_ids:
+                placeholders = ",".join("?" * len(all_task_ids))
+                cursor.execute(f"DELETE FROM tasks WHERE id IN ({placeholders})", all_task_ids)
+
+            # SubProject削除
+            if subproject_ids:
+                placeholders = ",".join("?" * len(subproject_ids))
+                cursor.execute(f"DELETE FROM subprojects WHERE id IN ({placeholders})", subproject_ids)
+
+            # Project削除
+            cursor.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+
+            if own_conn:
+                conn.commit()
+
+            return result
+
+        except Exception as e:
+            if own_conn:
+                conn.rollback()
+            raise
+
 
 class SubProjectRepository:
     """
@@ -620,6 +767,133 @@ class SubProjectRepository:
             raise ConstraintViolationError(f"SubProjectの削除に失敗しました: {e}")
         except Exception as e:
             conn.rollback()
+            raise
+
+    def cascade_delete(
+        self, subproject_id: int, dry_run: bool = False, conn: Optional[sqlite3.Connection] = None
+    ) -> dict:
+        """
+        SubProjectを子要素も含めて連鎖削除（Phase 4 実装）
+
+        子Task、SubTaskを再帰的に削除します。
+        依存関係はON DELETE CASCADEにより自動削除されます。
+
+        Args:
+            subproject_id: SubProjectID
+            dry_run: True の場合、削除対象を収集するのみで実際には削除しない
+            conn: 既存のコネクション（トランザクション共有用）
+
+        Returns:
+            dict: 削除結果 {
+                'subprojects': 削除されるSubProject数,
+                'tasks': 削除されるTask数,
+                'subtasks': 削除されるSubTask数,
+                'task_dependencies': 削除されるTask依存関係数,
+                'subtask_dependencies': 削除されるSubTask依存関係数
+            }
+
+        Raises:
+            ConstraintViolationError: SubProjectが存在しない場合
+        """
+        own_conn = False
+        if conn is None:
+            conn = self.db.connect()
+            own_conn = True
+
+        try:
+            cursor = conn.cursor()
+
+            # SubProjectの存在確認
+            cursor.execute("SELECT project_id FROM subprojects WHERE id = ?", (subproject_id,))
+            row = cursor.fetchone()
+            if not row:
+                raise ConstraintViolationError(f"SubProjectID {subproject_id} は存在しません")
+
+            project_id = row[0]
+
+            # 削除対象の収集
+            # Taskを取得
+            cursor.execute("SELECT id FROM tasks WHERE subproject_id = ?", (subproject_id,))
+            task_ids = [row[0] for row in cursor.fetchall()]
+
+            # SubTaskを取得
+            if task_ids:
+                placeholders = ",".join("?" * len(task_ids))
+                cursor.execute(
+                    f"SELECT id FROM subtasks WHERE task_id IN ({placeholders})",
+                    task_ids,
+                )
+                subtask_ids = [row[0] for row in cursor.fetchall()]
+            else:
+                subtask_ids = []
+
+            # 依存関係数を取得
+            if task_ids:
+                placeholders = ",".join("?" * len(task_ids))
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(*) FROM task_dependencies
+                    WHERE predecessor_id IN ({placeholders}) OR successor_id IN ({placeholders})
+                    """,
+                    task_ids + task_ids,
+                )
+                task_dep_count = cursor.fetchone()[0]
+            else:
+                task_dep_count = 0
+
+            if subtask_ids:
+                placeholders = ",".join("?" * len(subtask_ids))
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(*) FROM subtask_dependencies
+                    WHERE predecessor_id IN ({placeholders}) OR successor_id IN ({placeholders})
+                    """,
+                    subtask_ids + subtask_ids,
+                )
+                subtask_dep_count = cursor.fetchone()[0]
+            else:
+                subtask_dep_count = 0
+
+            result = {
+                "subprojects": 1,
+                "tasks": len(task_ids),
+                "subtasks": len(subtask_ids),
+                "task_dependencies": task_dep_count,
+                "subtask_dependencies": subtask_dep_count,
+            }
+
+            if dry_run:
+                # dry-runモード: rollback して結果を返す
+                if own_conn:
+                    conn.rollback()
+                return result
+
+            # 実削除: 子→親の順で削除
+            # SubTask削除（依存関係は ON DELETE CASCADE で自動削除）
+            if subtask_ids:
+                placeholders = ",".join("?" * len(subtask_ids))
+                cursor.execute(f"DELETE FROM subtasks WHERE id IN ({placeholders})", subtask_ids)
+
+            # Task削除（依存関係は ON DELETE CASCADE で自動削除）
+            if task_ids:
+                placeholders = ",".join("?" * len(task_ids))
+                cursor.execute(f"DELETE FROM tasks WHERE id IN ({placeholders})", task_ids)
+
+            # SubProject削除
+            cursor.execute("DELETE FROM subprojects WHERE id = ?", (subproject_id,))
+
+            # 親プロジェクトの updated_at を更新
+            now = _now()
+            cursor.execute("UPDATE projects SET updated_at = ? WHERE id = ?", (now, project_id))
+
+            if own_conn:
+                conn.commit()
+
+            return result
+
+        except Exception as e:
+            if own_conn:
+                conn.rollback()
             raise
 
 
@@ -1118,107 +1392,113 @@ class TaskRepository:
             conn.rollback()
             raise
 
-    def cascade_delete(self, task_id: int, force: bool = False) -> dict:
+    def cascade_delete(
+        self, task_id: int, dry_run: bool = False, conn: Optional[sqlite3.Connection] = None
+    ) -> dict:
         """
-        Taskを子SubTaskも含めて連鎖削除 (D6) - Phase 2/3 で実装予定
+        Taskを子SubTaskも含めて連鎖削除（Phase 4 実装）
 
-        **注意:** この機能は Phase 1 のスコープ外のため、現在は無効化されています。
-        Phase 2 または Phase 3 で正式に実装される予定です。
-
-        このメソッドは、Taskとそのすべての子SubTaskを削除します。
-        forceフラグがTrueでない場合はエラーになります。
+        子SubTaskを再帰的に削除します。
+        依存関係はON DELETE CASCADEにより自動削除されます。
 
         Args:
             task_id: TaskID
-            force: 強制削除フラグ (Trueの場合のみ実行)
+            dry_run: True の場合、削除対象を収集するのみで実際には削除しない
+            conn: 既存のコネクション（トランザクション共有用）
 
         Returns:
             dict: 削除結果 {
-                'task_id': 削除されたTaskID,
-                'subtasks_deleted': 削除されたSubTaskIDリスト,
-                'subtask_bridges': SubTaskで橋渡しされた依存関係リスト,
-                'task_bridges': Taskで橋渡しされた依存関係リスト
+                'tasks': 削除されるTask数,
+                'subtasks': 削除されるSubTask数,
+                'task_dependencies': 削除されるTask依存関係数,
+                'subtask_dependencies': 削除されるSubTask依存関係数
             }
 
         Raises:
-            DeletionError: forceフラグがFalseの場合
             ConstraintViolationError: Taskが存在しない場合
         """
-        raise NotImplementedError(
-            "cascade_delete は Phase 1 のスコープ外です。"
-            "この機能は Phase 2/3 で実装される予定です。"
-        )
-
-        # 以下、既存の実装コードは温存
-        if not force:
-            raise DeletionError(
-                "連鎖削除にはforce=Trueフラグが必要です。"
-                "この操作はTaskとすべての子SubTaskを削除します。"
-            )
-
-        conn = self.db.connect()
-        cursor = conn.cursor()
+        own_conn = False
+        if conn is None:
+            conn = self.db.connect()
+            own_conn = True
 
         try:
+            cursor = conn.cursor()
+
             # Taskの存在確認
-            cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+            cursor.execute("SELECT project_id, subproject_id FROM tasks WHERE id = ?", (task_id,))
             row = cursor.fetchone()
             if not row:
                 raise ConstraintViolationError(f"TaskID {task_id} は存在しません")
 
-            # 循環インポートを避けるため遅延インポート
-            from .dependencies import DependencyManager
+            project_id = row[0]
+            subproject_id = row[1]
 
-            dep_manager = DependencyManager(self.db)
-            subtask_repo = SubTaskRepository(self.db)
+            # 削除対象の収集
+            # SubTaskを取得
+            cursor.execute("SELECT id FROM subtasks WHERE task_id = ?", (task_id,))
+            subtask_ids = [row[0] for row in cursor.fetchall()]
 
-            # すべての子SubTaskを取得
-            subtasks = subtask_repo.get_by_task(task_id)
-            subtask_ids = [st.id for st in subtasks]
-            subtask_bridges = []
+            # 依存関係数を取得
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM task_dependencies
+                WHERE predecessor_id = ? OR successor_id = ?
+                """,
+                (task_id, task_id),
+            )
+            task_dep_count = cursor.fetchone()[0]
 
-            # 各SubTaskを橋渡し削除
-            for subtask in subtasks:
-                # 同一トランザクション内で橋渡しを実行
-                bridged = dep_manager.bridge_dependencies(subtask.id, "subtask", conn=conn)
-                subtask_bridges.extend(bridged)
-                # SubTask削除 (依存関係はCASCADEで自動削除)
-                cursor.execute("DELETE FROM subtasks WHERE id = ?", (subtask.id,))
+            if subtask_ids:
+                placeholders = ",".join("?" * len(subtask_ids))
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(*) FROM subtask_dependencies
+                    WHERE predecessor_id IN ({placeholders}) OR successor_id IN ({placeholders})
+                    """,
+                    subtask_ids + subtask_ids,
+                )
+                subtask_dep_count = cursor.fetchone()[0]
+            else:
+                subtask_dep_count = 0
 
-            # Task自身の依存関係を橋渡し
-            # 同一トランザクション内で橋渡しを実行
-            task_bridges = dep_manager.bridge_dependencies(task_id, "task", conn=conn)
+            result = {
+                "tasks": 1,
+                "subtasks": len(subtask_ids),
+                "task_dependencies": task_dep_count,
+                "subtask_dependencies": subtask_dep_count,
+            }
 
-            # Task削除 (依存関係はCASCADEで自動削除)
+            if dry_run:
+                # dry-runモード: rollback して結果を返す
+                if own_conn:
+                    conn.rollback()
+                return result
+
+            # 実削除: 子→親の順で削除
+            # SubTask削除（依存関係は ON DELETE CASCADE で自動削除）
+            if subtask_ids:
+                placeholders = ",".join("?" * len(subtask_ids))
+                cursor.execute(f"DELETE FROM subtasks WHERE id IN ({placeholders})", subtask_ids)
+
+            # Task削除（依存関係は ON DELETE CASCADE で自動削除）
             cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
 
             # 親の updated_at を更新
             now = _now()
-            if row["subproject_id"] is not None:
-                cursor.execute(
-                    "UPDATE subprojects SET updated_at = ? WHERE id = ?",
-                    (now, row["subproject_id"]),
-                )
+            if subproject_id is not None:
+                cursor.execute("UPDATE subprojects SET updated_at = ? WHERE id = ?", (now, subproject_id))
             else:
-                cursor.execute(
-                    "UPDATE projects SET updated_at = ? WHERE id = ?",
-                    (now, row["project_id"]),
-                )
+                cursor.execute("UPDATE projects SET updated_at = ? WHERE id = ?", (now, project_id))
 
-            conn.commit()
+            if own_conn:
+                conn.commit()
 
-            return {
-                "task_id": task_id,
-                "subtasks_deleted": subtask_ids,
-                "subtask_bridges": subtask_bridges,
-                "task_bridges": task_bridges,
-            }
+            return result
 
-        except sqlite3.IntegrityError as e:
-            conn.rollback()
-            raise ConstraintViolationError(f"Taskの連鎖削除に失敗しました: {e}")
         except Exception as e:
-            conn.rollback()
+            if own_conn:
+                conn.rollback()
             raise
 
 
@@ -1516,6 +1796,84 @@ class SubTaskRepository:
             raise ConstraintViolationError(f"SubTaskの削除に失敗しました: {e}")
         except Exception as e:
             conn.rollback()
+            raise
+
+    def cascade_delete(
+        self, subtask_id: int, dry_run: bool = False, conn: Optional[sqlite3.Connection] = None
+    ) -> dict:
+        """
+        SubTaskを連鎖削除（Phase 4 実装）
+
+        SubTaskには子エンティティがないため、単純な削除と同じ動作になります。
+        依存関係はON DELETE CASCADEにより自動削除されます。
+
+        Args:
+            subtask_id: SubTaskID
+            dry_run: True の場合、削除対象を収集するのみで実際には削除しない
+            conn: 既存のコネクション（トランザクション共有用）
+
+        Returns:
+            dict: 削除結果 {
+                'subtasks': 削除されるSubTask数,
+                'subtask_dependencies': 削除されるSubTask依存関係数
+            }
+
+        Raises:
+            ConstraintViolationError: SubTaskが存在しない場合
+        """
+        own_conn = False
+        if conn is None:
+            conn = self.db.connect()
+            own_conn = True
+
+        try:
+            cursor = conn.cursor()
+
+            # SubTaskの存在確認
+            cursor.execute("SELECT task_id FROM subtasks WHERE id = ?", (subtask_id,))
+            row = cursor.fetchone()
+            if not row:
+                raise ConstraintViolationError(f"SubTaskID {subtask_id} は存在しません")
+
+            task_id = row[0]
+
+            # 依存関係数を取得
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM subtask_dependencies
+                WHERE predecessor_id = ? OR successor_id = ?
+                """,
+                (subtask_id, subtask_id),
+            )
+            subtask_dep_count = cursor.fetchone()[0]
+
+            result = {
+                "subtasks": 1,
+                "subtask_dependencies": subtask_dep_count,
+            }
+
+            if dry_run:
+                # dry-runモード: rollback して結果を返す
+                if own_conn:
+                    conn.rollback()
+                return result
+
+            # 実削除
+            # SubTask削除（依存関係は ON DELETE CASCADE で自動削除）
+            cursor.execute("DELETE FROM subtasks WHERE id = ?", (subtask_id,))
+
+            # 親Taskの updated_at を更新
+            now = _now()
+            cursor.execute("UPDATE tasks SET updated_at = ? WHERE id = ?", (now, task_id))
+
+            if own_conn:
+                conn.commit()
+
+            return result
+
+        except Exception as e:
+            if own_conn:
+                conn.rollback()
             raise
 
     def delete_with_bridge(self, subtask_id: int) -> list[tuple[int, int]]:

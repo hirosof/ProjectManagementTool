@@ -288,7 +288,51 @@ def _show_delete_impact(
         # 削除処理を実行（トランザクション内）
         try:
             if use_cascade:
-                _delete_cascade_in_transaction(db, entity_type, entity_id, conn)
+                # cascade_deleteのdry-runモードを使用
+                from pmtool.repository import (
+                    ProjectRepository,
+                    SubProjectRepository,
+                    TaskRepository,
+                    SubTaskRepository,
+                )
+
+                if entity_type == "project":
+                    repo = ProjectRepository(db)
+                    result = repo.cascade_delete(entity_id, dry_run=True)
+                elif entity_type == "subproject":
+                    repo = SubProjectRepository(db)
+                    result = repo.cascade_delete(entity_id, dry_run=True)
+                elif entity_type == "task":
+                    repo = TaskRepository(db)
+                    result = repo.cascade_delete(entity_id, dry_run=True)
+                elif entity_type == "subtask":
+                    repo = SubTaskRepository(db)
+                    result = repo.cascade_delete(entity_id, dry_run=True)
+                else:
+                    raise ValueError(f"Unknown entity type: {entity_type}")
+
+                # 結果を表示
+                console.print("[bold]削除対象:[/bold]")
+                if result.get("projects", 0) > 0:
+                    console.print(f"  Project: {result['projects']}件")
+                if result.get("subprojects", 0) > 0:
+                    console.print(f"  SubProject: {result['subprojects']}件")
+                if result.get("tasks", 0) > 0:
+                    console.print(f"  Task: {result['tasks']}件")
+                if result.get("subtasks", 0) > 0:
+                    console.print(f"  SubTask: {result['subtasks']}件")
+
+                console.print("\n[bold]削除される依存関係:[/bold]")
+                if result.get("task_dependencies", 0) > 0:
+                    console.print(f"  Task依存: {result['task_dependencies']}件")
+                if result.get("subtask_dependencies", 0) > 0:
+                    console.print(f"  SubTask依存: {result['subtask_dependencies']}件")
+
+                console.print(
+                    "\n[yellow]※ これは dry-run です。実際には削除されません。[/yellow]"
+                )
+                console.print("[dim]実行する場合は --cascade --force を指定してください。[/dim]")
+
             elif entity_type == "project":
                 _delete_project_in_transaction(db, entity_id, conn)
             elif entity_type == "subproject":
@@ -574,65 +618,42 @@ def _delete_cascade(db: Database, entity_type: str, entity_id: int) -> None:
 
 def _delete_cascade_in_transaction(
     db: Database, entity_type: str, entity_id: int, conn
-) -> None:
+) -> dict:
     """
-    カスケード削除のトランザクション内処理
+    カスケード削除のトランザクション内処理（Phase 4 実装）
+
+    repository層のcascade_deleteメソッドを使用します。
 
     Args:
         db: Database インスタンス
         entity_type: 削除対象のエンティティ種別
         entity_id: 削除対象のエンティティID
         conn: データベース接続
+
+    Returns:
+        dict: 削除結果（dry-runモードで使用）
     """
-    cursor = conn.cursor()
+    from pmtool.repository import (
+        ProjectRepository,
+        SubProjectRepository,
+        TaskRepository,
+        SubTaskRepository,
+    )
 
     if entity_type == "project":
-        # Project配下の全エンティティを削除
-        # 1. SubTask削除（Task→SubTaskの順）
-        cursor.execute("""
-            DELETE FROM subtasks
-            WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)
-        """, (entity_id,))
-
-        # 2. Task削除
-        cursor.execute("DELETE FROM tasks WHERE project_id = ?", (entity_id,))
-
-        # 3. SubProject削除
-        cursor.execute("DELETE FROM subprojects WHERE project_id = ?", (entity_id,))
-
-        # 4. Project削除
-        cursor.execute("DELETE FROM projects WHERE id = ?", (entity_id,))
-
+        repo = ProjectRepository(db)
+        return repo.cascade_delete(entity_id, dry_run=False, conn=conn)
     elif entity_type == "subproject":
-        # SubProject配下の全エンティティを削除
-        # 1. SubTask削除
-        cursor.execute("""
-            DELETE FROM subtasks
-            WHERE task_id IN (SELECT id FROM tasks WHERE subproject_id = ?)
-        """, (entity_id,))
-
-        # 2. Task削除
-        cursor.execute("DELETE FROM tasks WHERE subproject_id = ?", (entity_id,))
-
-        # 3. 子SubProject削除（再帰的に）
-        cursor.execute("SELECT id FROM subprojects WHERE parent_subproject_id = ?", (entity_id,))
-        child_subprojects = cursor.fetchall()
-        for child_sp in child_subprojects:
-            _delete_cascade_in_transaction(db, "subproject", child_sp[0], conn)
-
-        # 4. SubProject自身を削除
-        cursor.execute("DELETE FROM subprojects WHERE id = ?", (entity_id,))
-
+        repo = SubProjectRepository(db)
+        return repo.cascade_delete(entity_id, dry_run=False, conn=conn)
     elif entity_type == "task":
-        # Task配下の全SubTaskを削除
-        cursor.execute("DELETE FROM subtasks WHERE task_id = ?", (entity_id,))
-
-        # Task自身を削除
-        cursor.execute("DELETE FROM tasks WHERE id = ?", (entity_id,))
-
+        repo = TaskRepository(db)
+        return repo.cascade_delete(entity_id, dry_run=False, conn=conn)
     elif entity_type == "subtask":
-        # SubTaskには子がないので直接削除
-        cursor.execute("DELETE FROM subtasks WHERE id = ?", (entity_id,))
+        repo = SubTaskRepository(db)
+        return repo.cascade_delete(entity_id, dry_run=False, conn=conn)
+    else:
+        raise ValueError(f"Unknown entity type: {entity_type}")
 
 
 # ===== status コマンド =====
