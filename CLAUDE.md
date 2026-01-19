@@ -16,7 +16,7 @@
 - DAG（有向非循環グラフ）制約による安全な依存関係管理
 - ステータス管理による作業フローの可視化と制御
 
-**現在のフェーズ:** Phase 4 実装中（P4-01 完了、P4-02以降実装予定）
+**現在のフェーズ:** Phase 4 実装中（P4-01完了、P4-07〜P4-08実装予定）
 
 ## 技術スタック
 
@@ -300,26 +300,36 @@ pmtool show project 1
 
 ### Phase 4: 品質・安定性向上（実装中）
 
-#### P4-01実装済み（テスト基盤強化）
-- **pytest-cov 設定**: カバレッジ計測環境整備（pyproject.toml）
-- **エッジケーステスト追加**: test_repository_edgecases.py、test_dependencies_edgecases.py
-- **TUI統合テスト追加**: test_tui_integration.py
-- **カバレッジ計測範囲明確化**: src/pmtool のみ、`__init__.py` 除外
+#### P4-01完了（テストカバレッジ80%達成）
+- **pytest-cov 設定**: カバレッジ計測環境整備（pyproject.toml、fail-under=80）
+- **スモークテスト追加**: test_commands_smoke.py（32本、commands.py: 37%→72%）
+- **input.pyカバレッジ100%**: test_input_coverage.py（16本）
+- **エッジケーステスト**: test_repository_edgecases.py、test_dependencies_edgecases.py
+- **TUI統合テスト**: test_tui_integration.py
+- **カバレッジ計測範囲**: src/pmtool のみ、`__init__.py` 除外
 
-**現在のカバレッジ:** 53%（目標80%、P4-02以降で改善継続）
+**達成カバレッジ:** **80.08%**（2319 stmt / 462 miss）
+- exceptions.py, models.py, formatters.py, validators.py, input.py: 100%
+- cli.py: 99%, database.py: 91%, display.py: 87%
+- doctor.py: 81%, repository.py: 79%
+- dependencies.py: 73%, status.py: 72%, commands.py: 72%
 
-#### P4-02以降（実装予定）
-- **P4-02**: 依存関係の可視化強化（direct graph、chain、impact）
-- **P4-03**: dry-run の拡張（status DONE）
-- **P4-04**: doctor/check の拡充
-- **P4-05**: cascade_delete の正式実装
-- **P4-06**: エラーハンドリング改善
+#### P4-02〜P4-06完了（既存実装）
+- **P4-02**: 依存関係の可視化強化（deps graph/chain/impact）
+- **P4-03**: dry-run の拡張（status DONE dry-run）
+- **P4-04**: doctor/check の拡充（整合性チェック）
+- **P4-05**: cascade_delete の実装（--cascade --force）
+- **P4-06**: エラーハンドリング改善（理由タイプ、詳細ヒント）
+
+#### P4-07〜P4-08（実装予定）
+- **P4-07**: ユーザードキュメント整備（user guide、tutorial、FAQ）
+- **P4-08**: テンプレート機能仕様確定（実装は Phase 5）
 
 ## 未実装機能
 
 ### Phase 4 残タスク
-- テンプレート機能仕様確定（実装は行わない、Phase 5 で実装予定）
-- ユーザードキュメント整備（user guide、tutorial、FAQ）
+- **P4-07**: ユーザードキュメント整備（user guide、tutorial、FAQ）
+- **P4-08**: テンプレート機能仕様確定（実装は Phase 5 で実施）
 
 ### Phase 5 以降（予定）
 - Textual 等の全画面TUI（別プログラム/別系統として実装）
@@ -331,23 +341,32 @@ pmtool show project 1
 - `scripts/verify_phase1.py` による機能検証
 - ビジネスロジック層の完全な動作確認
 
-**Phase 3:**
-- pytest による自動テスト（P0-08で導入）
-- コア層の代表的テストケース（repository、dependencies、status、doctor）
-
-**Phase 4:**
-- pytest-cov によるカバレッジ測定
-- エッジケース・境界値テスト（空文字、NULL、巨大な値、境界値）
-- TUI層の統合テスト（最低限）
-
 **Phase 2:**
 - `scripts/verify_phase2.py` による機能検証
 - TUI層の完全な動作確認
 - 統合テスト（ビジネスロジック層 + TUI層）
 
-**今後（Phase 3以降）:**
-- pytest による自動テスト導入
-- ユニットテスト・インテグレーションテストの充実
+**Phase 3:**
+- pytest による自動テスト（P0-08で導入）
+- コア層の代表的テストケース（repository、dependencies、status、doctor）
+
+**Phase 4:**
+- pytest-cov によるカバレッジ測定（**80.08%達成**）
+- スモークテスト（commands.py: 32本、DB状態変化＋例外なし確認）
+- エッジケース・境界値テスト（空文字、NULL、巨大な値、境界値）
+- TUI層の統合テスト、input.pyカバレッジ100%
+
+**テスト実行:**
+```bash
+# 全テスト実行
+pytest
+
+# カバレッジ付き実行
+pytest --cov=src/pmtool --cov-report=term-missing
+
+# 特定のテストファイル実行
+pytest tests/test_commands_smoke.py
+```
 
 ## トラブルシューティング
 
@@ -464,11 +483,28 @@ TaskをDONEにするには:
 
 ## 開発履歴
 
+### Phase 4 P4-01完了（2026-01-20）
+テストカバレッジ80%達成・ChatGPTレビュー承認:
+- **カバレッジ80.08%達成**（71% → 80.08%、+9.08%）
+- test_commands_smoke.py（32本）: commands.py 37%→72% (+35%)
+- test_input_coverage.py（16本）: input.py 100%達成
+- スモークテスト戦略の転換成功（出力一致 → DB状態変化＋例外なし確認）
+- ChatGPT Review7承認（Phase 4 P4-01完了）
+
+### Phase 3 P0完了（2026-01-18）
+拡張機能実装（P0-01〜P0-08完了）:
+- Project直下Task区画化（UX改善）
+- deps list/graph/chain/impact コマンド実装
+- 削除時の確認プロンプト、親文脈表示
+- --bridge/--cascade オプション実装
+- ステータスエラー時の詳細ヒント、理由タイプ表示
+- pytest自動テスト導入（P0-08）
+
 ### Phase 2 実装完了・承認（2026-01-17）
 TUI層の実装完了・ChatGPTレビュー承認:
 - Rich + prompt_toolkit によるTUI実装
 - argparseによるサブコマンド方式CLI
-- 全コマンド実装（list, show, add, delete, status, deps）
+- 全コマンド実装（list, show, add, delete, status, deps, update, doctor）
 - 設計レビュー指摘A-1～4、B-5～9すべて対応
 - verify_phase2.py による動作確認完了
 
@@ -493,6 +529,8 @@ ChatGPTによるコードレビューフィードバックに対応:
 
 ## 更新履歴
 
+- 2026-01-20: Phase 4 P4-01完了状態を反映（カバレッジ80.08%達成、スモークテスト追加）
+- 2026-01-18: Phase 3 P0完了状態を反映（拡張機能、pytest導入）
 - 2026-01-17: Phase 2 完了状態を反映（TUI層追加、コマンド一覧、検証スクリプト追加）
-- 2026-01-17: Phase 1 完了状態を反映した更新（実装済み機能、アーキテクチャ詳細追加）
+- 2026-01-17: Phase 1 完了状態を反映（実装済み機能、アーキテクチャ詳細追加）
 - 2026-01-16: 初版作成（CLAUDE_TEMPLATE.mdベース）

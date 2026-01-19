@@ -6,7 +6,7 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 
 ## プロジェクトステータス
 
-**現在のフェーズ:** Phase 4 実装中（P4-01 完了、P4-02以降実装予定）
+**現在のフェーズ:** Phase 4 実装中（P4-01完了、P4-07〜P4-08実装予定）
 
 - ✅ Phase 0: 基盤構築（DB設計、初期化スクリプト）
 - ✅ Phase 1: コア機能実装（CRUD、依存関係管理、ステータス管理、削除制御）
@@ -62,7 +62,7 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 - **データベース:** SQLite3
 - **UI/UX:** Rich (表示), prompt_toolkit (入力)
 - **開発ツール:** Claude Code、ChatGPT
-- **テスト:** pytest、pytest-cov（カバレッジ53%、目標80%）、検証スクリプト
+- **テスト:** pytest、pytest-cov（**カバレッジ80.08%達成**）、検証スクリプト
 
 ## プロジェクト構造
 
@@ -237,25 +237,45 @@ db.close()
 
 ## 開発履歴
 
-### Phase 4 実装中（2026-01-19〜）
+### Phase 4 P4-01完了（2026-01-20）
 
-品質・安定性向上フェーズ:
-- ✅ **P4-01**: テスト基盤強化（pytest-cov、エッジケース・境界値テスト）
-  - カバレッジ53%（目標80%）
-  - test_repository_edgecases.py、test_dependencies_edgecases.py 追加
-- ⏳ **P4-02以降**: 依存可視化、dry-run拡張、doctor拡充、cascade_delete、エラーハンドリング改善
+テストカバレッジ80%達成・ChatGPTレビュー承認:
+- **カバレッジ80.08%達成**（71% → 80.08%、+9.08%）
+- test_commands_smoke.py（32本）: commands.py 37%→72% (+35%)
+- test_input_coverage.py（16本）: input.py 100%達成
+- エッジケース・境界値テスト（repository、dependencies）
+- TUI統合テスト（最低限）
+- スモークテスト戦略の転換成功（出力一致 → DB状態変化＋例外なし確認）
+- ChatGPT Review7承認（Phase 4 P4-01完了）
 
-### Phase 3 実装完了（P0）（2026-01-18）
+**達成カバレッジ:** 80.08%（2319 stmt / 462 miss）
+- exceptions.py, models.py, formatters.py, validators.py, input.py: 100%
+- cli.py: 99%, database.py: 91%, display.py: 87%
+- doctor.py: 81%, repository.py: 79%
+- dependencies.py: 73%, status.py: 72%, commands.py: 72%
 
-拡張機能実装（P0完了、P1はPhase 4へ移管）:
-- **P0-01**: Project直下Task区画化（UX改善）
-- **P0-02**: `deps list` コマンド実装
-- **P0-03**: 削除時の確認プロンプト
-- **P0-04**: `deps` コマンドでの親文脈表示
-- **P0-05**: `--bridge` オプション実装
-- **P0-06**: ステータスエラー時の詳細ヒント
-- **P0-07**: 橋渡し削除の説明追加
-- **P0-08**: エラーメッセージの理由タイプ表示
+**P4-02〜P4-06完了（既存実装）:**
+- P4-02: 依存関係の可視化強化（deps graph/chain/impact）
+- P4-03: dry-run の拡張（status DONE dry-run）
+- P4-04: doctor/check の拡充（整合性チェック）
+- P4-05: cascade_delete の実装（--cascade --force）
+- P4-06: エラーハンドリング改善（理由タイプ、詳細ヒント）
+
+**P4-07〜P4-08（実装予定）:**
+- P4-07: ユーザードキュメント整備（user guide、tutorial、FAQ）
+- P4-08: テンプレート機能仕様確定（実装は Phase 5）
+
+### Phase 3 P0完了（2026-01-18）
+
+拡張機能実装（P0-01〜P0-08完了）:
+- Project直下Task区画化（UX改善）
+- deps list/graph/chain/impact コマンド実装
+- 削除時の確認プロンプト、親文脈表示
+- --bridge/--cascade オプション実装
+- ステータスエラー時の詳細ヒント、理由タイプ表示
+- pytest自動テスト導入（P0-08）
+
+詳細: [docs/discussions/Phase3_P0完了レポート.md](docs/discussions/Phase3_P0完了レポート.md)
 
 ### Phase 2 実装完了・承認（2026-01-17）
 
@@ -291,24 +311,17 @@ ChatGPTによるコードレビューフィードバックに対応:
 - Database クラス実装
 - 初期化スクリプト（init_db.sql）
 
-## 今後の予定（Phase 3）
+## 今後の予定
 
-### 実装候補機能
+### Phase 4 残タスク（P4-07〜P4-08）
 
-- **update系コマンド:** 名前・説明・order_index変更
-- **doctor/checkコマンド:** データ整合性チェック
-- **dry-run機能:** 破壊的操作のプレビュー
-- **テンプレート機能:** プロジェクト・タスク構造のテンプレート化
-- **検索・フィルタ:** エンティティ検索、ステータスフィルタ
-- **依存関係可視化強化:** グラフ表示、クリティカルパス分析
+- **P4-07**: ユーザードキュメント整備（user guide、tutorial、FAQ）
+- **P4-08**: テンプレート機能仕様確定（実装は行わない、Phase 5 で実装予定）
 
-### 改善候補（技術的負債）
+### Phase 5 以降（予定）
 
-- ステータス遷移エラーの理由表現強化（reason code、例外型分離）
-- SubProject入れ子データの表示方針確定
-- 表示順（order_index）の明示的保証
-- 絵文字・記号の端末依存対応
-- pytest自動テスト導入
+- Textual 等の全画面TUI（別プログラム/別系統として実装）
+- テンプレート機能実装（Textual版のみ）
 
 ## ライセンス
 
