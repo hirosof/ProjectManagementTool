@@ -40,9 +40,7 @@ def temp_db() -> Generator[Database, None, None]:
     finally:
         # すべての接続を明示的に閉じる
         if db is not None:
-            # Databaseクラスに接続プールがある場合は閉じる処理を追加
-            # 現状は個別に接続を管理しているため、GCに任せる
-            pass
+            db.close()
 
         # 短い待機時間を設ける（Windows環境でのファイルロック解放を待つ）
         import time
