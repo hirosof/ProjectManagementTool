@@ -139,26 +139,27 @@ def test_status_transition_success(temp_db: Database):
     """ステータス遷移が成功する"""
     from pmtool.repository import TaskRepository
     from pmtool.status import StatusManager
-    from pmtool.models import TaskStatus
+    from pmtool.dependencies import DependencyManager
 
     proj_repo = ProjectRepository(temp_db)
     subproj_repo = SubProjectRepository(temp_db)
     task_repo = TaskRepository(temp_db)
-    status_mgr = StatusManager(temp_db)
+    dep_mgr = DependencyManager(temp_db)
+    status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "Description")
     subproject = subproj_repo.create(project.id, "SubProject", "Description")
     task = task_repo.create(subproject.id, "Task", "Description")
 
     # 初期状態はUNSET
-    assert task.status == TaskStatus.UNSET
+    assert task.status == "UNSET"
 
     # NOT_STARTEDに遷移
-    status_mgr.set_task_status(task.id, TaskStatus.NOT_STARTED)
+    status_mgr.update_task_status(task.id, "NOT_STARTED")
 
     # 確認
     updated_task = task_repo.get_by_id(task.id)
-    assert updated_task.status == TaskStatus.NOT_STARTED
+    assert updated_task.status == "NOT_STARTED"
 
 
 def test_status_transition_to_done_with_prerequisites(temp_db: Database):
@@ -166,14 +167,13 @@ def test_status_transition_to_done_with_prerequisites(temp_db: Database):
     from pmtool.repository import TaskRepository
     from pmtool.status import StatusManager
     from pmtool.dependencies import DependencyManager
-    from pmtool.models import TaskStatus
     from pmtool.exceptions import StatusTransitionError
 
     proj_repo = ProjectRepository(temp_db)
     subproj_repo = SubProjectRepository(temp_db)
     task_repo = TaskRepository(temp_db)
-    status_mgr = StatusManager(temp_db)
     dep_mgr = DependencyManager(temp_db)
+    status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "Description")
     subproject = subproj_repo.create(project.id, "SubProject", "Description")
@@ -185,7 +185,7 @@ def test_status_transition_to_done_with_prerequisites(temp_db: Database):
 
     # A が未完了の状態で B を DONE にしようとするとエラー
     with pytest.raises(StatusTransitionError):
-        status_mgr.set_task_status(task_b.id, TaskStatus.DONE)
+        status_mgr.update_task_status(task_b.id, "DONE")
 
 
 # ========================================
@@ -281,13 +281,12 @@ def test_full_workflow_with_dependencies(temp_db: Database):
     """依存関係を含む一連のワークフローが正常に動作する"""
     from pmtool.dependencies import DependencyManager
     from pmtool.status import StatusManager
-    from pmtool.models import TaskStatus
 
     proj_repo = ProjectRepository(temp_db)
     subproj_repo = SubProjectRepository(temp_db)
     task_repo = TaskRepository(temp_db)
     dep_mgr = DependencyManager(temp_db)
-    status_mgr = StatusManager(temp_db)
+    status_mgr = StatusManager(temp_db, dep_mgr)
 
     # プロジェクト構造を作成
     project = proj_repo.create("Project", "Description")
@@ -299,11 +298,11 @@ def test_full_workflow_with_dependencies(temp_db: Database):
     dep_mgr.add_task_dependency(task_a.id, task_b.id)
 
     # A を DONE にする
-    status_mgr.set_task_status(task_a.id, TaskStatus.DONE)
+    status_mgr.update_task_status(task_a.id, "DONE")
 
     # B を DONE にする（A が DONE なので成功する）
-    status_mgr.set_task_status(task_b.id, TaskStatus.DONE)
+    status_mgr.update_task_status(task_b.id, "DONE")
 
     # 確認
     task_b_updated = task_repo.get_by_id(task_b.id)
-    assert task_b_updated.status == TaskStatus.DONE
+    assert task_b_updated.status == "DONE"

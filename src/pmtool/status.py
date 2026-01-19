@@ -347,9 +347,12 @@ class StatusManager:
                 - False, "理由", reason, details : 遷移不可能
         """
         from .validators import validate_status
+        from .exceptions import ValidationError
 
         # 1. ステータス値のバリデーション
-        if not validate_status(new_status, node_type):
+        try:
+            validate_status(new_status)
+        except ValidationError as e:
             return (
                 False,
                 f"無効なステータス値: {new_status}",

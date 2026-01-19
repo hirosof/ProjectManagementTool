@@ -392,7 +392,7 @@ def show_dependency_chain_subtask(db: Database, path: list[int]) -> None:
 
 def show_impact_analysis_task(db: Database, task_id: int, all_successors: list[int]) -> None:
     """
-    Task影響範囲分析をRichで表示（DONEにすると解放されるノード）
+    Task影響範囲分析をRichで表示（後続ノード：DONEにすると解放される可能性のあるノード）
 
     Args:
         db: Database インスタンス
@@ -409,7 +409,7 @@ def show_impact_analysis_task(db: Database, task_id: int, all_successors: list[i
         return
 
     console.print(f"\n[bold]=== Impact Analysis: Task {task_id} ===[/bold]\n")
-    console.print(f"[bold]Affected Tasks (will be unblocked when Task {task_id} is DONE):[/bold]")
+    console.print(f"[bold]後続Task（このTaskがDONEになると解放される可能性のあるTask）:[/bold]")
 
     if all_successors:
         for succ_id in all_successors:
@@ -433,7 +433,7 @@ def show_impact_analysis_subtask(
     db: Database, subtask_id: int, all_successors: list[int]
 ) -> None:
     """
-    SubTask影響範囲分析をRichで表示（DONEにすると解放されるノード）
+    SubTask影響範囲分析をRichで表示（後続ノード：DONEにすると解放される可能性のあるノード）
 
     Args:
         db: Database インスタンス
@@ -450,7 +450,7 @@ def show_impact_analysis_subtask(
 
     console.print(f"\n[bold]=== Impact Analysis: SubTask {subtask_id} ===[/bold]\n")
     console.print(
-        f"[bold]Affected SubTasks (will be unblocked when SubTask {subtask_id} is DONE):[/bold]"
+        f"[bold]後続SubTask（このSubTaskがDONEになると解放される可能性のあるSubTask）:[/bold]"
     )
 
     if all_successors:

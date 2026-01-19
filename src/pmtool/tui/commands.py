@@ -289,6 +289,7 @@ def _show_delete_impact(
         try:
             if use_cascade:
                 # cascade_deleteのdry-runモードを使用
+                # 注: connを渡すことで、dry-run時のrollbackが外側のトランザクションを巻き込まないようにする
                 from pmtool.repository import (
                     ProjectRepository,
                     SubProjectRepository,
@@ -298,16 +299,16 @@ def _show_delete_impact(
 
                 if entity_type == "project":
                     repo = ProjectRepository(db)
-                    result = repo.cascade_delete(entity_id, dry_run=True)
+                    result = repo.cascade_delete(entity_id, dry_run=True, conn=conn)
                 elif entity_type == "subproject":
                     repo = SubProjectRepository(db)
-                    result = repo.cascade_delete(entity_id, dry_run=True)
+                    result = repo.cascade_delete(entity_id, dry_run=True, conn=conn)
                 elif entity_type == "task":
                     repo = TaskRepository(db)
-                    result = repo.cascade_delete(entity_id, dry_run=True)
+                    result = repo.cascade_delete(entity_id, dry_run=True, conn=conn)
                 elif entity_type == "subtask":
                     repo = SubTaskRepository(db)
-                    result = repo.cascade_delete(entity_id, dry_run=True)
+                    result = repo.cascade_delete(entity_id, dry_run=True, conn=conn)
                 else:
                     raise ValueError(f"Unknown entity type: {entity_type}")
 

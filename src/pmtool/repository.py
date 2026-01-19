@@ -384,9 +384,8 @@ class ProjectRepository:
             }
 
             if dry_run:
-                # dry-runモード: rollback して結果を返す
-                if own_conn:
-                    conn.rollback()
+                # dry-runモード: SELECTのみなのでrollbackは不要
+                # rollbackは呼び出し元で実施する
                 return result
 
             # 実削除: 子→親の順で削除
@@ -863,9 +862,8 @@ class SubProjectRepository:
             }
 
             if dry_run:
-                # dry-runモード: rollback して結果を返す
-                if own_conn:
-                    conn.rollback()
+                # dry-runモード: SELECTのみなのでrollbackは不要
+                # rollbackは呼び出し元で実施する
                 return result
 
             # 実削除: 子→親の順で削除
@@ -1470,9 +1468,8 @@ class TaskRepository:
             }
 
             if dry_run:
-                # dry-runモード: rollback して結果を返す
-                if own_conn:
-                    conn.rollback()
+                # dry-runモード: SELECTのみなのでrollbackは不要
+                # rollbackは呼び出し元で実施する
                 return result
 
             # 実削除: 子→親の順で削除
@@ -1853,9 +1850,8 @@ class SubTaskRepository:
             }
 
             if dry_run:
-                # dry-runモード: rollback して結果を返す
-                if own_conn:
-                    conn.rollback()
+                # dry-runモード: SELECTのみなのでrollbackは不要
+                # rollbackは呼び出し元で実施する
                 return result
 
             # 実削除
