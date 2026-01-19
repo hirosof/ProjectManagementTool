@@ -27,7 +27,7 @@ from pmtool.repository import (
 def test_list_projects_empty(temp_db: Database):
     """プロジェクトが存在しない場合のlist all操作"""
     repo = ProjectRepository(temp_db)
-    projects = repo.list_all()
+    projects = repo.get_all()
 
     # 空のリスト
     assert len(projects) == 0
@@ -39,7 +39,7 @@ def test_list_projects_with_data(temp_db: Database):
     repo.create("Project 1", "Description 1")
     repo.create("Project 2", "Description 2")
 
-    projects = repo.list_all()
+    projects = repo.get_all()
 
     # プロジェクトが2件存在
     assert len(projects) == 2
@@ -58,8 +58,8 @@ def test_show_project_simple(temp_db: Database):
     task_repo = TaskRepository(temp_db)
 
     project = proj_repo.create("Test Project", "Test Description")
-    subproject = subproj_repo.create(project.id, "SubProject 1", "SubProject Description")
-    task = task_repo.create(subproject.id, "Task 1", "Task Description")
+    subproject = subproj_repo.create(project.id, "SubProject 1", description="SubProject Description")
+    task = task_repo.create(project.id, "Task 1", subproject_id=subproject.id, description="Task Description")
 
     # プロジェクトを取得
     retrieved = proj_repo.get_by_id(project.id)
@@ -118,16 +118,16 @@ def test_delete_project_success(temp_db: Database):
 
 def test_delete_project_with_children_fails(temp_db: Database):
     """子エンティティが存在するプロジェクトの削除はエラーになる"""
-    from pmtool.exceptions import DeletionError
+    from pmtool.exceptions import ConstraintViolationError
 
     proj_repo = ProjectRepository(temp_db)
     subproj_repo = SubProjectRepository(temp_db)
 
     project = proj_repo.create("Project", "Description")
-    subproject = subproj_repo.create(project.id, "SubProject", "Description")
+    subproject = subproj_repo.create(project.id, "SubProject", description="Description")
 
     # 子が存在する場合、削除はエラー
-    with pytest.raises(DeletionError):
+    with pytest.raises(ConstraintViolationError):
         proj_repo.delete(project.id)
 
 
@@ -148,8 +148,8 @@ def test_status_transition_success(temp_db: Database):
     status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "Description")
-    subproject = subproj_repo.create(project.id, "SubProject", "Description")
-    task = task_repo.create(subproject.id, "Task", "Description")
+    subproject = subproj_repo.create(project.id, "SubProject", description="Description")
+    task = task_repo.create(project.id, "Task", subproject_id=subproject.id, description="Description")
 
     # 初期状態はUNSET
     assert task.status == "UNSET"
@@ -176,9 +176,9 @@ def test_status_transition_to_done_with_prerequisites(temp_db: Database):
     status_mgr = StatusManager(temp_db, dep_mgr)
 
     project = proj_repo.create("Project", "Description")
-    subproject = subproj_repo.create(project.id, "SubProject", "Description")
-    task_a = task_repo.create(subproject.id, "Task A", "Description")
-    task_b = task_repo.create(subproject.id, "Task B", "Description")
+    subproject = subproj_repo.create(project.id, "SubProject", description="Description")
+    task_a = task_repo.create(project.id, "Task A", subproject_id=subproject.id, description="Description")
+    task_b = task_repo.create(project.id, "Task B", subproject_id=subproject.id, description="Description")
 
     # A → B
     dep_mgr.add_task_dependency(task_a.id, task_b.id)
@@ -202,16 +202,16 @@ def test_add_dependency_success(temp_db: Database):
     dep_mgr = DependencyManager(temp_db)
 
     project = proj_repo.create("Project", "Description")
-    subproject = subproj_repo.create(project.id, "SubProject", "Description")
-    task_a = task_repo.create(subproject.id, "Task A", "Description")
-    task_b = task_repo.create(subproject.id, "Task B", "Description")
+    subproject = subproj_repo.create(project.id, "SubProject", description="Description")
+    task_a = task_repo.create(project.id, "Task A", subproject_id=subproject.id, description="Description")
+    task_b = task_repo.create(project.id, "Task B", subproject_id=subproject.id, description="Description")
 
     # A → B
     dep_mgr.add_task_dependency(task_a.id, task_b.id)
 
     # 依存関係が存在することを確認
     deps = dep_mgr.get_task_dependencies(task_b.id)
-    assert task_a.id in deps
+    assert task_a.id in deps["predecessors"]
 
 
 def test_remove_dependency_success(temp_db: Database):
@@ -224,9 +224,9 @@ def test_remove_dependency_success(temp_db: Database):
     dep_mgr = DependencyManager(temp_db)
 
     project = proj_repo.create("Project", "Description")
-    subproject = subproj_repo.create(project.id, "SubProject", "Description")
-    task_a = task_repo.create(subproject.id, "Task A", "Description")
-    task_b = task_repo.create(subproject.id, "Task B", "Description")
+    subproject = subproj_repo.create(project.id, "SubProject", description="Description")
+    task_a = task_repo.create(project.id, "Task A", subproject_id=subproject.id, description="Description")
+    task_b = task_repo.create(project.id, "Task B", subproject_id=subproject.id, description="Description")
 
     # A → B
     dep_mgr.add_task_dependency(task_a.id, task_b.id)
@@ -236,7 +236,7 @@ def test_remove_dependency_success(temp_db: Database):
 
     # 依存関係が存在しないことを確認
     deps = dep_mgr.get_task_dependencies(task_b.id)
-    assert task_a.id not in deps
+    assert task_a.id not in deps["predecessors"]
 
 
 # ========================================
@@ -290,9 +290,9 @@ def test_full_workflow_with_dependencies(temp_db: Database):
 
     # プロジェクト構造を作成
     project = proj_repo.create("Project", "Description")
-    subproject = subproj_repo.create(project.id, "SubProject", "Description")
-    task_a = task_repo.create(subproject.id, "Task A", "Description")
-    task_b = task_repo.create(subproject.id, "Task B", "Description")
+    subproject = subproj_repo.create(project.id, "SubProject", description="Description")
+    task_a = task_repo.create(project.id, "Task A", subproject_id=subproject.id, description="Description")
+    task_b = task_repo.create(project.id, "Task B", subproject_id=subproject.id, description="Description")
 
     # 依存関係を追加（A → B）
     dep_mgr.add_task_dependency(task_a.id, task_b.id)
