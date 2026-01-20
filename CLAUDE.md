@@ -230,6 +230,9 @@ ProjectManagementTool/
 # 依存ライブラリのインストール
 pip install -e .
 
+# dataフォルダ作成
+mkdir data
+
 # データベース初期化
 python -c "from src.pmtool.database import Database; db = Database('data/pmtool.db'); db.initialize('scripts/init_db.sql', force=True)"
 
