@@ -6,13 +6,13 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 
 ## プロジェクトステータス
 
-**現在のフェーズ:** Phase 4 実装中（P4-01完了、P4-07〜P4-08実装予定）
+**現在のフェーズ:** Phase 4 完了、Phase 5 実装予定
 
 - ✅ Phase 0: 基盤構築（DB設計、初期化スクリプト）
 - ✅ Phase 1: コア機能実装（CRUD、依存関係管理、ステータス管理、削除制御）
 - ✅ Phase 2: TUIインターフェース実装（CLIコマンド、Rich表示、エラーハンドリング）
 - ✅ Phase 3: 拡張機能（P0完了：UX改善、エラーメッセージ強化）
-- ⏳ Phase 4: 品質・安定性向上（テスト基盤強化、依存可視化、dry-run拡張、doctor拡充）
+- ✅ Phase 4: 品質・安定性向上（テストカバレッジ80%、ユーザードキュメント整備、テンプレート仕様書作成）
 
 ## 主要機能
 
@@ -93,6 +93,7 @@ ProjectManagementTool/
 │   └── test_*_edgecases.py  # エッジケース・境界値テスト
 ├── docs/                    # ドキュメント
 │   ├── README.md            # ドキュメント構造ガイド
+│   ├── user/                # ユーザー向けドキュメント
 │   ├── specifications/      # 実装仕様書
 │   ├── design/              # 設計書・計画書
 │   └── discussions/         # 議論ログ・レビュー記録

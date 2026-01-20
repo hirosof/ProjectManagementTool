@@ -16,7 +16,7 @@
 - DAG（有向非循環グラフ）制約による安全な依存関係管理
 - ステータス管理による作業フローの可視化と制御
 
-**現在のフェーズ:** Phase 4 実装中（P4-01完了、P4-07〜P4-08実装予定）
+**現在のフェーズ:** Phase 4 完了、Phase 5 実装予定
 
 ## 技術スタック
 
@@ -59,6 +59,7 @@ ProjectManagementTool/
 │   └── verify_phase2.py     # Phase 2 検証スクリプト
 ├── docs/                    # ドキュメント
 │   ├── README.md            # ドキュメント構造ガイド
+│   ├── user/                # ユーザー向けドキュメント
 │   ├── specifications/      # 実装仕様書
 │   ├── design/              # 設計書・計画書
 │   └── discussions/         # 議論ログ・レビュー記録
@@ -201,11 +202,17 @@ ProjectManagementTool/
 
 **仕様・設計:**
 - **`docs/specifications/プロジェクト管理ツール_ClaudeCode仕様書.md`** - プロジェクト全体の仕様
+- **`docs/specifications/テンプレート機能_仕様書.md`** - テンプレート機能仕様書（Phase 5実装予定）
 - **`docs/design/DB設計書_v2.1_最終版.md`** - データベース設計の詳細
 - **`docs/design/実装方針確定メモ.md`** - 実装方針の決定事項
 - **`docs/design/Phase2_TUI設計書.md`** - Phase 2 TUI設計書
 - **`docs/design/Phase3_拡張機能実装_設計書.md`** - Phase 3 拡張機能設計書
 - **`docs/design/Phase4_品質安定性向上_設計書.md`** - Phase 4 品質・安定性向上設計書
+
+**ユーザー向けドキュメント（Phase 4）:**
+- **`docs/user/USER_GUIDE.md`** - ユーザーガイド（基本概念、コマンドリファレンス）
+- **`docs/user/TUTORIAL.md`** - チュートリアル（実践的なシナリオ）
+- **`docs/user/FAQ.md`** - よくある質問・トラブルシューティング
 
 **Phase 1（ビジネスロジック層）:**
 - **`src/pmtool/repository.py`** - CRUD操作の実装（1300行超の中核ファイル）
@@ -298,9 +305,9 @@ pmtool show project 1
 - **P0-07**: 橋渡し削除の説明追加
 - **P0-08**: エラーメッセージの理由タイプ表示
 
-### Phase 4: 品質・安定性向上（実装中）
+### Phase 4: 品質・安定性向上（完了）
 
-#### P4-01完了（テストカバレッジ80%達成）
+#### P4-01: テストカバレッジ80%達成
 - **pytest-cov 設定**: カバレッジ計測環境整備（pyproject.toml、fail-under=80）
 - **スモークテスト追加**: test_commands_smoke.py（32本、commands.py: 37%→72%）
 - **input.pyカバレッジ100%**: test_input_coverage.py（16本）
@@ -314,22 +321,36 @@ pmtool show project 1
 - doctor.py: 81%, repository.py: 79%
 - dependencies.py: 73%, status.py: 72%, commands.py: 72%
 
-#### P4-02〜P4-06完了（既存実装）
+#### P4-02〜P4-06: 既存実装の確認・拡充
 - **P4-02**: 依存関係の可視化強化（deps graph/chain/impact）
 - **P4-03**: dry-run の拡張（status DONE dry-run）
 - **P4-04**: doctor/check の拡充（整合性チェック）
 - **P4-05**: cascade_delete の実装（--cascade --force）
 - **P4-06**: エラーハンドリング改善（理由タイプ、詳細ヒント）
 
-#### P4-07〜P4-08（実装予定）
-- **P4-07**: ユーザードキュメント整備（user guide、tutorial、FAQ）
-- **P4-08**: テンプレート機能仕様確定（実装は Phase 5）
+#### P4-07: ユーザードキュメント整備（完了）
+- **USER_GUIDE.md**: ユーザーガイド（~700行）
+  - インストール手順、基本概念、用語定義
+  - コマンドリファレンス（全8コマンドの詳細）
+  - 削除操作の詳細（通常削除、橋渡し削除、連鎖削除）
+- **TUTORIAL.md**: チュートリアル（~500行）
+  - シナリオ1: 基本的なプロジェクト管理
+  - シナリオ2: 依存関係管理
+  - 実践的な使い方をステップバイステップで解説
+- **FAQ.md**: よくある質問（~400行）
+  - エラー対処法（FK制約違反、サイクル検出、ステータス遷移エラー等）
+  - トラブルシューティング（doctor、dry-run の使い方）
+  - Tips & Tricks
+
+#### P4-08: テンプレート機能仕様書作成（完了）
+- **テンプレート機能_仕様書.md**: 完全な仕様書（~780行）
+  - 機能要件（5項目）、非機能要件（3項目）
+  - 設計原則（SubProjectテンプレートのみ、依存関係なし、UNSET初期化）
+  - データ設計（DB vs JSON/YAML比較、推奨: DB内テーブル）
+  - コマンド仕様（save/list/show/apply/delete）
+  - 処理フロー、エラーハンドリング、Phase 5実装計画
 
 ## 未実装機能
-
-### Phase 4 残タスク
-- **P4-07**: ユーザードキュメント整備（user guide、tutorial、FAQ）
-- **P4-08**: テンプレート機能仕様確定（実装は Phase 5 で実施）
 
 ### Phase 5 以降（予定）
 - Textual 等の全画面TUI（別プログラム/別系統として実装）
@@ -483,13 +504,19 @@ TaskをDONEにするには:
 
 ## 開発履歴
 
-### Phase 4 P4-01完了（2026-01-20）
-テストカバレッジ80%達成・ChatGPTレビュー承認:
-- **カバレッジ80.08%達成**（71% → 80.08%、+9.08%）
-- test_commands_smoke.py（32本）: commands.py 37%→72% (+35%)
-- test_input_coverage.py（16本）: input.py 100%達成
-- スモークテスト戦略の転換成功（出力一致 → DB状態変化＋例外なし確認）
-- ChatGPT Review7承認（Phase 4 P4-01完了）
+### Phase 4 完了（2026-01-20）
+品質・安定性向上・ドキュメント整備完了:
+- **P4-01**: テストカバレッジ80.08%達成（71% → 80.08%、+9.08%）
+  - test_commands_smoke.py（32本）: commands.py 37%→72%
+  - test_input_coverage.py（16本）: input.py 100%達成
+  - スモークテスト戦略の転換成功（出力一致 → DB状態変化＋例外なし確認）
+- **P4-02〜P4-06**: 既存実装の確認・拡充（deps graph/chain/impact、dry-run拡張、doctor拡充、cascade_delete、エラーハンドリング改善）
+- **P4-07**: ユーザードキュメント整備（~1,600行）
+  - USER_GUIDE.md, TUTORIAL.md, FAQ.md 作成
+  - ChatGPTレビュー承認・7箇所の改善反映
+- **P4-08**: テンプレート機能仕様書作成（~780行）
+  - 機能要件、設計原則、データ設計、コマンド仕様、Phase 5実装計画
+  - ChatGPTレビュー承認
 
 ### Phase 3 P0完了（2026-01-18）
 拡張機能実装（P0-01〜P0-08完了）:
@@ -529,7 +556,7 @@ ChatGPTによるコードレビューフィードバックに対応:
 
 ## 更新履歴
 
-- 2026-01-20: Phase 4 P4-01完了状態を反映（カバレッジ80.08%達成、スモークテスト追加）
+- 2026-01-20: Phase 4完了状態を反映（P4-01〜P4-08全タスク完了、ユーザードキュメント整備、テンプレート仕様書作成）
 - 2026-01-18: Phase 3 P0完了状態を反映（拡張機能、pytest導入）
 - 2026-01-17: Phase 2 完了状態を反映（TUI層追加、コマンド一覧、検証スクリプト追加）
 - 2026-01-17: Phase 1 完了状態を反映（実装済み機能、アーキテクチャ詳細追加）
