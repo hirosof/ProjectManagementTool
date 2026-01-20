@@ -10,7 +10,7 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 
 - ✅ Phase 0: 基盤構築（DB設計、初期化スクリプト）
 - ✅ Phase 1: コア機能実装（CRUD、依存関係管理、ステータス管理、削除制御）
-- ✅ Phase 2: TUIインターフェース実装（CLIコマンド、Rich表示、エラーハンドリング）
+- ✅ Phase 2: CLIインターフェース実装（Rich表示、エラーハンドリング）
 - ✅ Phase 3: 拡張機能（P0完了：UX改善、エラーメッセージ強化）
 - ✅ Phase 4: 品質・安定性向上（テストカバレッジ80%、ユーザードキュメント整備、テンプレート仕様書作成）
 
@@ -39,7 +39,7 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 - **橋渡し削除:** 依存関係を再接続してから削除
 - **連鎖削除:** Phase 3 で実装予定（現在は無効化）
 
-### Phase 2: TUIインターフェース
+### Phase 2: CLIインターフェース
 
 #### CLIコマンド
 - `pmtool list projects` - Project一覧表示（Rich Table）
@@ -76,7 +76,7 @@ ProjectManagementTool/
 │   ├── status.py            # ステータス管理（Phase 1）
 │   ├── validators.py        # バリデーション（Phase 1）
 │   ├── exceptions.py        # カスタム例外（Phase 1）
-│   └── tui/                 # TUIインターフェース（Phase 2）
+│   └── tui/                 # CLIインターフェース（Phase 2）
 │       ├── __init__.py      # tuiパッケージ初期化
 │       ├── formatters.py    # ステータスフォーマット
 │       ├── input.py         # 対話的入力処理
@@ -132,7 +132,7 @@ python -c "from src.pmtool.database import Database; db = Database('data/pmtool.
 # Phase 1 検証（ビジネスロジック層）
 python scripts/verify_phase1.py
 
-# Phase 2 検証（TUI層）
+# Phase 2 検証（CLI層）
 python scripts/verify_phase2.py
 
 # CLIコマンド実行例
@@ -177,7 +177,7 @@ pmtool の使い方を学ぶための詳細なドキュメントが用意され�
 - **[docs/design/](docs/design/)** - 設計書・計画書
   - DB設計書_v2.1_最終版.md
   - 実装方針確定メモ.md
-  - Phase2_TUI設計書.md
+  - Phase2_CLI設計書.md
   - Phase4_品質安定性向上_設計書.md
 - **[docs/discussions/](docs/discussions/)** - 議論ログ・レビュー記録
   - Phase2_完了レポート.md
@@ -268,7 +268,7 @@ db.close()
 - test_commands_smoke.py（32本）: commands.py 37%→72% (+35%)
 - test_input_coverage.py（16本）: input.py 100%達成
 - エッジケース・境界値テスト（repository、dependencies）
-- TUI統合テスト（最低限）
+- CLI統合テスト（最低限）
 - スモークテスト戦略の転換成功（出力一致 → DB状態変化＋例外なし確認）
 - ChatGPT Review7承認（Phase 4 P4-01完了）
 
@@ -303,8 +303,8 @@ db.close()
 
 ### Phase 2 実装完了・承認（2026-01-17）
 
-TUI層の実装完了・ChatGPTレビュー承認:
-- Rich + prompt_toolkit によるTUI実装
+CLI層の実装完了・ChatGPTレビュー承認:
+- Rich + prompt_toolkit による Rich-enhanced CLI実装
 - argparseによるサブコマンド方式CLI（全8コマンド）
 - 設計レビュー指摘A-1～4、B-5～9すべて対応
 - verify_phase2.py による動作確認完了
@@ -344,7 +344,7 @@ ChatGPTによるコードレビューフィードバックに対応:
 
 ### Phase 5 以降（予定）
 
-- Textual 等の全画面TUI（別プログラム/別系統として実装）
+- Textual 等の全画面TUI（別プログラム/別系統として実装、現行CLIツールとは独立）
 - テンプレート機能実装（Textual版のみ）
 
 ## ライセンス

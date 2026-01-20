@@ -46,7 +46,7 @@ ProjectManagementTool/
 │   ├── status.py            # ステータス管理（Phase 1）
 │   ├── validators.py        # バリデーション（Phase 1）
 │   ├── exceptions.py        # カスタム例外（Phase 1）
-│   └── tui/                 # TUIインターフェース（Phase 2）
+│   └── tui/                 # CLIインターフェース（Phase 2）
 │       ├── __init__.py      # tuiパッケージ初期化
 │       ├── formatters.py    # ステータスフォーマット
 │       ├── input.py         # 対話的入力処理
@@ -205,7 +205,7 @@ ProjectManagementTool/
 - **`docs/specifications/テンプレート機能_仕様書.md`** - テンプレート機能仕様書（Phase 5実装予定）
 - **`docs/design/DB設計書_v2.1_最終版.md`** - データベース設計の詳細
 - **`docs/design/実装方針確定メモ.md`** - 実装方針の決定事項
-- **`docs/design/Phase2_TUI設計書.md`** - Phase 2 TUI設計書
+- **`docs/design/Phase2_CLI設計書.md`** - Phase 2 CLI設計書
 - **`docs/design/Phase3_拡張機能実装_設計書.md`** - Phase 3 拡張機能設計書
 - **`docs/design/Phase4_品質安定性向上_設計書.md`** - Phase 4 品質・安定性向上設計書
 
@@ -219,7 +219,7 @@ ProjectManagementTool/
 - **`src/pmtool/dependencies.py`** - 依存関係管理・DAG検証
 - **`src/pmtool/status.py`** - ステータス管理ロジック
 
-**Phase 2（TUI層）:**
+**Phase 2（CLI層）:**
 - **`src/pmtool/tui/cli.py`** - CLIエントリーポイント（argparse）
 - **`src/pmtool/tui/commands.py`** - コマンドハンドラ（list, show, add, delete, status, deps）
 - **`src/pmtool/tui/display.py`** - Rich表示ロジック（テーブル、ツリー、依存関係）
@@ -274,7 +274,7 @@ pmtool show project 1
 - **橋渡し削除**: 依存関係を再接続してから削除（delete_with_bridge）
 - **連鎖削除**: Phase 3 で実装予定（現在はNotImplementedError）
 
-### Phase 2: TUIインターフェース（完了）
+### Phase 2: CLIインターフェース（完了）
 
 #### CLIコマンド
 - **list projects**: Project一覧をRich Tableで表示
@@ -312,7 +312,7 @@ pmtool show project 1
 - **スモークテスト追加**: test_commands_smoke.py（32本、commands.py: 37%→72%）
 - **input.pyカバレッジ100%**: test_input_coverage.py（16本）
 - **エッジケーステスト**: test_repository_edgecases.py、test_dependencies_edgecases.py
-- **TUI統合テスト**: test_tui_integration.py
+- **CLI統合テスト**: test_tui_integration.py
 - **カバレッジ計測範囲**: src/pmtool のみ、`__init__.py` 除外
 
 **達成カバレッジ:** **80.08%**（2319 stmt / 462 miss）
@@ -353,7 +353,7 @@ pmtool show project 1
 ## 未実装機能
 
 ### Phase 5 以降（予定）
-- Textual 等の全画面TUI（別プログラム/別系統として実装）
+- Textual 等の全画面CLI（別プログラム/別系統として実装）
 - テンプレート機能実装（Textual版のみ）
 
 ## テスト
@@ -364,8 +364,8 @@ pmtool show project 1
 
 **Phase 2:**
 - `scripts/verify_phase2.py` による機能検証
-- TUI層の完全な動作確認
-- 統合テスト（ビジネスロジック層 + TUI層）
+- CLI層の完全な動作確認
+- 統合テスト（ビジネスロジック層 + CLI層）
 
 **Phase 3:**
 - pytest による自動テスト（P0-08で導入）
@@ -375,7 +375,7 @@ pmtool show project 1
 - pytest-cov によるカバレッジ測定（**80.08%達成**）
 - スモークテスト（commands.py: 32本、DB状態変化＋例外なし確認）
 - エッジケース・境界値テスト（空文字、NULL、巨大な値、境界値）
-- TUI層の統合テスト、input.pyカバレッジ100%
+- CLI層の統合テスト、input.pyカバレッジ100%
 
 **テスト実行:**
 ```bash
@@ -528,8 +528,8 @@ TaskをDONEにするには:
 - pytest自動テスト導入（P0-08）
 
 ### Phase 2 実装完了・承認（2026-01-17）
-TUI層の実装完了・ChatGPTレビュー承認:
-- Rich + prompt_toolkit によるTUI実装
+CLI層の実装完了・ChatGPTレビュー承認:
+- Rich + prompt_toolkit によるCLI実装
 - argparseによるサブコマンド方式CLI
 - 全コマンド実装（list, show, add, delete, status, deps, update, doctor）
 - 設計レビュー指摘A-1～4、B-5～9すべて対応
@@ -558,6 +558,6 @@ ChatGPTによるコードレビューフィードバックに対応:
 
 - 2026-01-20: Phase 4完了状態を反映（P4-01〜P4-08全タスク完了、ユーザードキュメント整備、テンプレート仕様書作成）
 - 2026-01-18: Phase 3 P0完了状態を反映（拡張機能、pytest導入）
-- 2026-01-17: Phase 2 完了状態を反映（TUI層追加、コマンド一覧、検証スクリプト追加）
+- 2026-01-17: Phase 2 完了状態を反映（CLI層追加、コマンド一覧、検証スクリプト追加）
 - 2026-01-17: Phase 1 完了状態を反映（実装済み機能、アーキテクチャ詳細追加）
 - 2026-01-16: 初版作成（CLAUDE_TEMPLATE.mdベース）
