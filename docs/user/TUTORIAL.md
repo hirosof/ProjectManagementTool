@@ -29,6 +29,9 @@
 
 このチュートリアルでは、pmtool を使った実践的なプロジェクト管理の方法を、2つのシナリオを通じて学びます。
 
+**チュートリアルのゴール:**
+プロジェクト作成 → 依存関係設定 → ステータス遷移 → 安全な削除という一連の典型的な利用フローを体験します。これにより、pmtool の基本的な操作方法を習得し、実際のプロジェクト管理に活用できるようになります。
+
 **シナリオ1: 基本的なプロジェクト管理**
 - プロジェクト・SubProject・Task・SubTask の作成
 - ステータス更新
@@ -236,6 +239,8 @@ $ pmtool status task 3 DONE
   Hint: Complete all child SubTasks before marking this task as DONE
 ```
 
+**なぜ失敗するか:** DONE遷移条件（すべての子SubTaskがDONE）を満たしていないため。詳細は [USER_GUIDE.md の「3.2 ステータス管理」](USER_GUIDE.md#32-ステータス管理) を参照してください。
+
 ### 2.6 エンティティの更新
 
 エンティティの名前や説明を更新できます。
@@ -269,6 +274,8 @@ $ pmtool delete task 3
 ❌ Error: Cannot delete Task 3: child SubTasks exist
   Hint: Use --bridge to reconnect dependencies, or --cascade --force to delete the entire subtree
 ```
+
+**なぜ失敗するか:** 子エンティティ（SubTask）が存在するため、通常削除では削除できません。詳細は [USER_GUIDE.md の「5. 削除操作の詳細」](USER_GUIDE.md#5-削除操作の詳細) を参照してください。
 
 連鎖削除を使うと、子も含めて削除できます。
 
@@ -342,6 +349,8 @@ $ pmtool deps add task --from 8 --to 7
   → Cannot add this dependency (would create a cycle)
 ```
 
+**なぜ失敗するか:** 依存関係がサイクル（循環）を形成してしまうため、DAG（有向非循環グラフ）制約に違反します。詳細は [USER_GUIDE.md の「3.3 依存関係管理」](USER_GUIDE.md#33-依存関係管理) を参照してください。
+
 ### 3.2 DONE遷移条件の確認
 
 依存関係がある場合、先行ノードが DONE でないと後続ノードを DONE にできません。
@@ -353,6 +362,8 @@ $ pmtool status task 6 DONE
   Reason: Predecessor Task 7 is not DONE (current: UNSET)
   Hint: Complete all predecessor tasks before marking this task as DONE
 ```
+
+**なぜ失敗するか:** DONE遷移条件（すべての先行ノードがDONE）を満たしていないため。先行ノードを先に完了させる必要があります。
 
 dry-run で遷移可否をチェックできます。
 

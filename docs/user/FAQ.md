@@ -163,6 +163,8 @@ pmtool.exceptions.StatusTransitionError: Cannot transition to DONE
   Reason: Predecessor Task 2 is not DONE (current: IN_PROGRESS)
 ```
 
+注: `Reason:` はエラーの理由を示す内部コード情報です。
+
 #### 原因:
 - 先行ノード（依存関係の predecessor）が DONE になっていない
 - 子 SubTask が DONE になっていない（Task の場合）
@@ -286,9 +288,17 @@ $ pmtool delete task 1 --cascade --dry-run
 
 ## 3. トラブルシューティング
 
-### 3.1 データ整合性チェックの使い方
+### 3.1 どんなときに doctor / check を実行すべきですか？
 
-#### 目的:
+#### 使いどころ:
+以下のような状況でdoctor（またはcheck）コマンドを実行して、データベースの整合性をチェックすることを推奨します。
+
+- 大量の削除・更新操作を行った後
+- エラーが頻発する場合（FK制約違反、サイクル検出など）
+- 定期的なメンテナンス（週次・月次など）
+- データベースを手動で操作した後（直接SQLを実行した場合など）
+
+#### チェック内容:
 データベースの整合性（FK制約、DAG制約、ステータス整合性、order_index重複）をチェックします。
 
 #### 使い方:
