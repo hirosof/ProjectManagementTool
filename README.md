@@ -145,6 +145,28 @@ pmtool show project 1
 
 ## ドキュメント
 
+### ユーザー向けドキュメント
+
+pmtool の使い方を学ぶための詳細なドキュメントが用意されています。
+
+- **[docs/user/USER_GUIDE.md](docs/user/USER_GUIDE.md)** - ユーザーガイド
+  - インストール手順
+  - 基本概念（4階層構造、ステータス管理、依存関係管理）
+  - コマンドリファレンス（全8コマンドの詳細）
+  - 削除操作の詳細（通常削除、橋渡し削除、連鎖削除）
+- **[docs/user/TUTORIAL.md](docs/user/TUTORIAL.md)** - チュートリアル
+  - シナリオ1: 基本的なプロジェクト管理
+  - シナリオ2: 依存関係管理
+  - 実践的な使い方をステップバイステップで解説
+- **[docs/user/FAQ.md](docs/user/FAQ.md)** - よくある質問
+  - エラー対処法（FK制約違反、サイクル検出、ステータス遷移エラー等）
+  - トラブルシューティング（doctor、dry-run の使い方）
+  - Tips & Tricks
+
+**初めて使う方は、USER_GUIDE.md から始めることをお勧めします。**
+
+### 開発者向けドキュメント
+
 プロジェクトの詳細な仕様・設計・議論記録は `docs/` フォルダに整理されています。
 
 **主要ドキュメント:**
@@ -155,6 +177,7 @@ pmtool show project 1
   - DB設計書_v2.1_最終版.md
   - 実装方針確定メモ.md
   - Phase2_TUI設計書.md
+  - Phase4_品質安定性向上_設計書.md
 - **[docs/discussions/](docs/discussions/)** - 議論ログ・レビュー記録
   - Phase2_完了レポート.md
   - Phase1_フィードバック対応完了レポート.md
