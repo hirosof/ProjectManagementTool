@@ -6,13 +6,14 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 
 ## プロジェクトステータス
 
-**現在のフェーズ:** Phase 4 完了、Phase 5 実装予定
+**現在のフェーズ:** Phase 4 完了、Phase 5 設計完了・実装着手可能
 
 - ✅ Phase 0: 基盤構築（DB設計、初期化スクリプト）
 - ✅ Phase 1: コア機能実装（CRUD、依存関係管理、ステータス管理、削除制御）
 - ✅ Phase 2: CLIインターフェース実装（Rich表示、エラーハンドリング）
 - ✅ Phase 3: 拡張機能（P0完了：UX改善、エラーメッセージ強化）
 - ✅ Phase 4: 品質・安定性向上（テストカバレッジ80%、ユーザードキュメント整備、テンプレート仕様書作成）
+- 🔨 Phase 5: Textual UI + テンプレート機能（設計完了、実装準備完了）
 
 ## 主要機能
 
@@ -264,6 +265,27 @@ db.close()
 
 ## 開発履歴
 
+### Phase 5 設計完了（2026-01-22）
+
+Textual UI + テンプレート機能の設計完了・実装着手可能:
+- **テンプレート機能BL設計書（P5-9 v1.1.1）承認**: TemplateManager/TemplateRepository設計
+  - SaveTemplateResult、ExternalDependencyWarning設計
+  - own_connパターンによるトランザクション設計
+  - 外部依存検出ロジック設計
+- **Textual UI基本構造設計書（P5-12 v1.0.2）承認**: 7画面構成・Widget設計
+  - Home, Project Detail, SubProject Detail, Template Hub, Save/Apply Wizard, Settings
+  - キーバインド統一（ESC=Back, H=Home）
+  - Textual 7.3.0バージョン固定
+- **詳細実装計画書（P5-17 v1.0.1）承認**: 全16タスクの詳細実装手順
+  - P5-01～P5-16の実装順序・マイルストーン（推定34時間）
+  - 具体的なコード例・完了条件
+  - 品質目標（テストカバレッジ80%）
+
+詳細:
+- [docs/design/Phase5_テンプレート機能_BL設計書.md](docs/design/Phase5_テンプレート機能_BL設計書.md)
+- [docs/design/Phase5_Textual_UI基本構造設計書.md](docs/design/Phase5_Textual_UI基本構造設計書.md)
+- [docs/design/Phase5_詳細実装計画書.md](docs/design/Phase5_詳細実装計画書.md)
+
 ### Phase 4 P4-01完了（2026-01-20）
 
 テストカバレッジ80%達成・ChatGPTレビュー承認:
@@ -340,12 +362,18 @@ ChatGPTによるコードレビューフィードバックに対応:
 
 ## 今後の予定
 
-### Phase 4 残タスク（P4-07〜P4-08）
+### Phase 5 実装（実装着手可能）
 
-- **P4-07**: ユーザードキュメント整備（user guide、tutorial、FAQ）
-- **P4-08**: テンプレート機能仕様確定（実装は行わない、Phase 5 で実装予定）
+設計完了・実装準備完了:
+- **P5-01～P5-03**: 基盤整備（プロジェクト構造、Textual骨格、DB接続）
+- **P5-04～P5-06**: テンプレート機能BL層（TemplateRepository、TemplateManager）
+- **P5-07～P5-09**: 基本UI（Home、Project Detail、SubProject Detail）
+- **P5-10～P5-12**: テンプレート機能UI（Template Hub、Save/Apply Wizard）
+- **P5-13～P5-16**: 補助機能・品質向上（Settings、初回セットアップ、テスト整備、完了レポート）
 
-### Phase 5 以降（予定）
+推定工数: 約34時間
+
+### Phase 6 以降（予定）
 
 - Textual 等の全画面TUI（別プログラム/別系統として実装、現行CLIツールとは独立）
 - テンプレート機能実装（Textual版のみ）

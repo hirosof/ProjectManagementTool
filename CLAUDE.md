@@ -16,7 +16,7 @@
 - DAG（有向非循環グラフ）制約による安全な依存関係管理
 - ステータス管理による作業フローの可視化と制御
 
-**現在のフェーズ:** Phase 4 完了、Phase 5 実装予定
+**現在のフェーズ:** Phase 4 完了、Phase 5 設計完了・実装着手可能
 
 ## 技術スタック
 
@@ -29,6 +29,7 @@
 **ライブラリ:**
 - Phase 1: 標準ライブラリのみ（sqlite3, dataclasses, datetime）
 - Phase 2: rich>=13.0.0, prompt_toolkit>=3.0.0
+- Phase 5: textual==7.3.0（Textual UI用、厳密バージョン固定）
 
 **ツール:**
 - Claude Code
@@ -38,21 +39,33 @@
 
 ```
 ProjectManagementTool/
-├── src/pmtool/              # ソースコード
-│   ├── database.py          # DB接続・初期化（Phase 1）
-│   ├── models.py            # エンティティモデル（dataclass）（Phase 1）
-│   ├── repository.py        # CRUD操作（Project, SubProject, Task, SubTask）（Phase 1）
-│   ├── dependencies.py      # 依存関係管理・DAG検証（Phase 1）
-│   ├── status.py            # ステータス管理（Phase 1）
-│   ├── validators.py        # バリデーション（Phase 1）
-│   ├── exceptions.py        # カスタム例外（Phase 1）
-│   └── tui/                 # CLIインターフェース（Phase 2）
-│       ├── __init__.py      # tuiパッケージ初期化
-│       ├── formatters.py    # ステータスフォーマット
-│       ├── input.py         # 対話的入力処理
-│       ├── display.py       # Rich表示ロジック
-│       ├── cli.py           # CLIエントリーポイント
-│       └── commands.py      # コマンドハンドラ
+├── src/
+│   ├── pmtool/              # コアビジネスロジック
+│   │   ├── database.py      # DB接続・初期化（Phase 1）
+│   │   ├── models.py        # エンティティモデル（dataclass）（Phase 1）
+│   │   ├── repository.py    # CRUD操作（Phase 1 + Phase 5でTemplateRepository追加）
+│   │   ├── dependencies.py  # 依存関係管理・DAG検証（Phase 1）
+│   │   ├── status.py        # ステータス管理（Phase 1）
+│   │   ├── validators.py    # バリデーション（Phase 1）
+│   │   ├── exceptions.py    # カスタム例外（Phase 1）
+│   │   ├── doctor.py        # 整合性チェック（Phase 3）
+│   │   ├── template.py      # テンプレート機能（Phase 5）
+│   │   └── tui/             # CLIインターフェース（Phase 2）
+│   │       ├── __init__.py
+│   │       ├── formatters.py
+│   │       ├── input.py
+│   │       ├── display.py
+│   │       ├── cli.py
+│   │       └── commands.py
+│   └── pmtool_textual/      # Textual UIインターフェース（Phase 5実装予定）
+│       ├── __init__.py
+│       ├── app.py           # Textualアプリケーションメイン
+│       ├── screens/         # 画面モジュール（7画面）
+│       │   └── __init__.py
+│       ├── widgets/         # カスタムWidget
+│       │   └── __init__.py
+│       └── utils/           # ユーティリティ
+│           └── __init__.py
 ├── scripts/                 # ユーティリティスクリプト
 │   ├── init_db.sql          # DB初期化SQL
 │   ├── verify_phase1.py     # Phase 1 検証スクリプト
@@ -202,12 +215,15 @@ ProjectManagementTool/
 
 **仕様・設計:**
 - **`docs/specifications/プロジェクト管理ツール_ClaudeCode仕様書.md`** - プロジェクト全体の仕様
-- **`docs/specifications/テンプレート機能_仕様書.md`** - テンプレート機能仕様書（Phase 5実装予定）
+- **`docs/specifications/テンプレート機能_仕様書.md`** - テンプレート機能仕様書（Phase 5）
 - **`docs/design/DB設計書_v2.1_最終版.md`** - データベース設計の詳細
 - **`docs/design/実装方針確定メモ.md`** - 実装方針の決定事項
 - **`docs/design/Phase2_CLI設計書.md`** - Phase 2 CLI設計書
 - **`docs/design/Phase3_拡張機能実装_設計書.md`** - Phase 3 拡張機能設計書
 - **`docs/design/Phase4_品質安定性向上_設計書.md`** - Phase 4 品質・安定性向上設計書
+- **`docs/design/Phase5_テンプレート機能_BL設計書.md`** - Phase 5 テンプレート機能ビジネスロジック層設計書（承認済み）
+- **`docs/design/Phase5_Textual_UI基本構造設計書.md`** - Phase 5 Textual UI基本構造設計書（承認済み）
+- **`docs/design/Phase5_詳細実装計画書.md`** - Phase 5 詳細実装計画書（全16タスク、承認済み）
 
 **ユーザー向けドキュメント（Phase 4）:**
 - **`docs/user/USER_GUIDE.md`** - ユーザーガイド（基本概念、コマンドリファレンス）
@@ -353,11 +369,32 @@ pmtool show project 1
   - コマンド仕様（save/list/show/apply/delete）
   - 処理フロー、エラーハンドリング、Phase 5実装計画
 
+## Phase 5: Textual UI + テンプレート機能（設計完了、実装着手可能）
+
+### 設計完了事項
+- **ビジネスロジック層設計**: TemplateManager、TemplateRepository（承認済み）
+- **UI層設計**: 7画面構成（Home, Project Detail, SubProject Detail, Template Hub, Save/Apply Wizard, Settings）（承認済み）
+- **詳細実装計画**: 全16タスク（P5-01～P5-16）、推定34時間（承認済み）
+
+### 実装予定機能
+- **テンプレート機能**: SubProjectテンプレートの保存・一覧・適用・削除・dry-run
+- **Textual UI**: 全画面TUIアプリケーション（Textual 7.3.0）
+- **初回セットアップ支援**: DB未作成時の初回セットアップ導線
+- **バックアップ案内**: DBファイルパス表示・手動バックアップ手順案内
+
+### Phase 6以降（予定）
+- 検索・絞り込み機能
+- メモ機能
+- 関連リンク管理
+- 外部ファイル添付
+- 変更履歴（ログ）
+- 一括操作
+- 複数DB管理
+- テンプレートexport/import
+
 ## 未実装機能
 
-### Phase 5 以降（予定）
-- Textual 等の全画面CLI（別プログラム/別系統として実装）
-- テンプレート機能実装（Textual版のみ）
+上記Phase 5、Phase 6以降の機能が未実装です。
 
 ## テスト
 
@@ -507,6 +544,21 @@ TaskをDONEにするには:
 
 ## 開発履歴
 
+### Phase 5 設計完了（2026-01-22）
+Textual UI + テンプレート機能の設計完了・実装着手可能:
+- **テンプレート機能BL設計書（P5-9 v1.1.1）**: TemplateManager/TemplateRepository設計（ChatGPTレビュー承認）
+  - SaveTemplateResult、ExternalDependencyWarning設計
+  - own_connパターンによるトランザクション設計
+  - 外部依存検出ロジック設計
+- **Textual UI基本構造設計書（P5-12 v1.0.2）**: 7画面構成・Widget設計（ChatGPTレビュー承認）
+  - Home, Project Detail, SubProject Detail, Template Hub, Save/Apply Wizard, Settings
+  - キーバインド統一（ESC=Back, H=Home）
+  - Textual 7.3.0バージョン固定
+- **詳細実装計画書（P5-17 v1.0.1）**: 全16タスクの詳細実装手順（ChatGPTレビュー承認）
+  - P5-01～P5-16の実装順序・マイルストーン（推定34時間）
+  - 具体的なコード例・完了条件
+  - 品質目標（テストカバレッジ80%）
+
 ### Phase 4 完了（2026-01-20）
 品質・安定性向上・ドキュメント整備完了:
 - **P4-01**: テストカバレッジ80.08%達成（71% → 80.08%、+9.08%）
@@ -559,6 +611,7 @@ ChatGPTによるコードレビューフィードバックに対応:
 
 ## 更新履歴
 
+- 2026-01-22: Phase 5設計完了状態を反映（BL設計書、UI設計書、詳細実装計画書承認）
 - 2026-01-20: Phase 4完了状態を反映（P4-01〜P4-08全タスク完了、ユーザードキュメント整備、テンプレート仕様書作成）
 - 2026-01-18: Phase 3 P0完了状態を反映（拡張機能、pytest導入）
 - 2026-01-17: Phase 2 完了状態を反映（CLI層追加、コマンド一覧、検証スクリプト追加）
