@@ -158,5 +158,68 @@ CREATE INDEX idx_subtask_deps_predecessor ON subtask_dependencies(predecessor_id
 CREATE INDEX idx_subtask_deps_successor ON subtask_dependencies(successor_id);
 
 -- ============================================================
+-- templates テーブル (Phase 5)
+-- ============================================================
+
+CREATE TABLE templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    include_tasks INTEGER NOT NULL DEFAULT 0,  -- 0: SubProjectのみ, 1: Task含む
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_templates_name ON templates(name);
+
+-- ============================================================
+-- template_tasks テーブル (Phase 5)
+-- ============================================================
+
+CREATE TABLE template_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    template_id INTEGER NOT NULL,
+    task_order INTEGER NOT NULL,  -- テンプレート内での順序（0, 1, 2, ...）
+    name TEXT NOT NULL,
+    description TEXT,
+    FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE,
+    UNIQUE (template_id, task_order)
+);
+
+CREATE INDEX idx_template_tasks_template_id ON template_tasks(template_id);
+
+-- ============================================================
+-- template_subtasks テーブル (Phase 5)
+-- ============================================================
+
+CREATE TABLE template_subtasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    template_task_id INTEGER NOT NULL,
+    subtask_order INTEGER NOT NULL,  -- Task内での順序（0, 1, 2, ...）
+    name TEXT NOT NULL,
+    description TEXT,
+    FOREIGN KEY (template_task_id) REFERENCES template_tasks(id) ON DELETE CASCADE,
+    UNIQUE (template_task_id, subtask_order)
+);
+
+CREATE INDEX idx_template_subtasks_task ON template_subtasks(template_task_id);
+
+-- ============================================================
+-- template_dependencies テーブル (Phase 5)
+-- ============================================================
+
+CREATE TABLE template_dependencies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    template_id INTEGER NOT NULL,
+    predecessor_order INTEGER NOT NULL,  -- 先行Taskのtask_order
+    successor_order INTEGER NOT NULL,    -- 後続Taskのtask_order
+    FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE,
+    UNIQUE (template_id, predecessor_order, successor_order),
+    CHECK(predecessor_order != successor_order)
+);
+
+CREATE INDEX idx_template_deps_template ON template_dependencies(template_id);
+
+-- ============================================================
 -- 初期化完了
 -- ============================================================
