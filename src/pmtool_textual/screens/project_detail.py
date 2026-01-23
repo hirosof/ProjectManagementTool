@@ -110,4 +110,5 @@ class ProjectDetailScreen(BaseScreen):
 
     def action_home(self) -> None:
         """HキーでHomeに戻る（画面スタックをクリア）"""
-        self.app.pop_screen()
+        while len(self.app.screen_stack) > 1:
+            self.app.pop_screen()
