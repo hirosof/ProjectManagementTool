@@ -4,7 +4,7 @@ from textual.containers import Vertical
 from textual.app import ComposeResult
 from textual.binding import Binding
 from .base import BaseScreen
-from ...pmtool.repository import ProjectRepository, SubProjectRepository, TaskRepository, SubTaskRepository
+from pmtool.repository import ProjectRepository, SubProjectRepository, TaskRepository, SubTaskRepository
 
 
 class ProjectDetailScreen(BaseScreen):
@@ -30,7 +30,7 @@ class ProjectDetailScreen(BaseScreen):
         """Project情報とツリーを読み込む"""
         db = self.app.db_manager.connect()
         repo = ProjectRepository(db)
-        project = repo.get_project(self.project_id)
+        project = repo.get_by_id(self.project_id)
 
         if project is None:
             self.app.pop_screen()
@@ -58,16 +58,16 @@ class ProjectDetailScreen(BaseScreen):
         st_repo = SubTaskRepository(db)
 
         # SubProject一覧取得
-        subprojects = sp_repo.list_subprojects(project.id)
+        subprojects = sp_repo.get_by_project(project.id)
 
         for sp in subprojects:
             sp_node = tree.root.add(
-                f"📁 {sp.name} [{sp.status}]",
+                f"📁 {sp.name} [UNSET]",  # SubProjectにはstatusフィールドがない
                 data={"type": "subproject", "id": sp.id},
             )
 
             # Task一覧取得
-            tasks = task_repo.list_tasks(subproject_id=sp.id)
+            tasks = task_repo.get_by_parent(project.id, sp.id)
             for task in tasks:
                 task_node = sp_node.add(
                     f"📋 {task.name} [{task.status}]",
@@ -75,7 +75,7 @@ class ProjectDetailScreen(BaseScreen):
                 )
 
                 # SubTask一覧取得
-                subtasks = st_repo.list_subtasks(task_id=task.id)
+                subtasks = st_repo.get_by_task(task.id)
                 for st in subtasks:
                     task_node.add(
                         f"✓ {st.name} [{st.status}]",
@@ -83,7 +83,7 @@ class ProjectDetailScreen(BaseScreen):
                     )
 
         # Project直下Task区画（グレーアウト）
-        direct_tasks = task_repo.list_tasks(project_id=project.id, subproject_id=None)
+        direct_tasks = task_repo.get_by_parent(project.id, None)
         if direct_tasks:
             direct_node = tree.root.add(
                 "[dim]Project直下のTask（操作不可）[/dim]",

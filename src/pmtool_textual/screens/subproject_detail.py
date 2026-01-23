@@ -4,7 +4,7 @@ from textual.containers import Vertical
 from textual.app import ComposeResult
 from textual.binding import Binding
 from .base import BaseScreen
-from ...pmtool.repository import SubProjectRepository, TaskRepository, SubTaskRepository
+from pmtool.repository import SubProjectRepository, TaskRepository, SubTaskRepository
 
 
 class SubProjectDetailScreen(BaseScreen):
@@ -31,7 +31,7 @@ class SubProjectDetailScreen(BaseScreen):
         """SubProject情報とツリーを読み込む"""
         db = self.app.db_manager.connect()
         sp_repo = SubProjectRepository(db)
-        subproject = sp_repo.get_subproject(self.subproject_id)
+        subproject = sp_repo.get_by_id(self.subproject_id)
 
         if subproject is None:
             self.app.pop_screen()
@@ -41,7 +41,7 @@ class SubProjectDetailScreen(BaseScreen):
         info = self.query_one("#subproject_info", Static)
         info.update(
             f"[bold]{subproject.name}[/bold]\n"
-            f"ID: {subproject.id} | Status: {subproject.status} | Updated: {subproject.updated_at[:10]}\n"
+            f"ID: {subproject.id} | Updated: {subproject.updated_at[:10]}\n"
             f"{subproject.description or ''}"
         )
 
@@ -58,7 +58,7 @@ class SubProjectDetailScreen(BaseScreen):
         st_repo = SubTaskRepository(db)
 
         # Task一覧取得
-        tasks = task_repo.list_tasks(subproject_id=subproject.id)
+        tasks = task_repo.get_by_parent(subproject.project_id, subproject.id)
 
         for task in tasks:
             task_node = tree.root.add(
@@ -67,7 +67,7 @@ class SubProjectDetailScreen(BaseScreen):
             )
 
             # SubTask一覧取得
-            subtasks = st_repo.list_subtasks(task_id=task.id)
+            subtasks = st_repo.get_by_task(task.id)
             for st in subtasks:
                 task_node.add(
                     f"✓ {st.name} [{st.status}]",

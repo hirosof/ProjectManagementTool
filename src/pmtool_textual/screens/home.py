@@ -3,7 +3,7 @@ from textual.widgets import DataTable
 from textual.app import ComposeResult
 from textual.binding import Binding
 from .base import BaseScreen
-from ...pmtool.repository import ProjectRepository
+from pmtool.repository import ProjectRepository
 
 
 class HomeScreen(BaseScreen):
@@ -35,7 +35,7 @@ class HomeScreen(BaseScreen):
         """Projectデータを読み込んでテーブルに表示"""
         db = self.app.db_manager.connect()
         repo = ProjectRepository(db)
-        projects = repo.list_projects()
+        projects = repo.get_all()
 
         table = self.query_one(DataTable)
         table.clear()
