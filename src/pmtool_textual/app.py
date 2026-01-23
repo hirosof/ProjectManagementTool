@@ -2,6 +2,7 @@
 from textual.app import App
 from textual.binding import Binding
 from .screens.home import HomeScreen
+from .utils.db_manager import DBManager
 
 
 class PMToolApp(App):
@@ -15,6 +16,10 @@ class PMToolApp(App):
     ]
 
     SCREENS = {"home": HomeScreen}
+
+    def __init__(self):
+        super().__init__()
+        self.db_manager = DBManager()
 
     def on_mount(self) -> None:
         """アプリケーション起動時の処理"""
