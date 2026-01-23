@@ -44,8 +44,11 @@ class PMToolApp(App):
     def action_home(self) -> None:
         """HキーでHomeに戻る"""
         # 画面スタックをクリアしてHomeに戻る
-        while len(self.screen_stack) > 1:
+        # screen_stack[0]がHomeだが、pop後にアクティブにならない場合があるため
+        # 全てpopしてからHomeを再プッシュする
+        while len(self.screen_stack) > 0:
             self.pop_screen()
+        self.push_screen("home")
 
 
 def main() -> None:
