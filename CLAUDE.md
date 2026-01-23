@@ -16,7 +16,7 @@
 - DAG（有向非循環グラフ）制約による安全な依存関係管理
 - ステータス管理による作業フローの可視化と制御
 
-**現在のフェーズ:** Phase 4 完了、Phase 5 設計完了・実装着手可能
+**現在のフェーズ:** Phase 5 実装中（Group 3完了、Group 4着手可能）
 
 ## 技術スタック
 
@@ -369,18 +369,40 @@ pmtool show project 1
   - コマンド仕様（save/list/show/apply/delete）
   - 処理フロー、エラーハンドリング、Phase 5実装計画
 
-## Phase 5: Textual UI + テンプレート機能（設計完了、実装着手可能）
+## Phase 5: Textual UI + テンプレート機能（実装中）
 
-### 設計完了事項
-- **ビジネスロジック層設計**: TemplateManager、TemplateRepository（承認済み）
-- **UI層設計**: 7画面構成（Home, Project Detail, SubProject Detail, Template Hub, Save/Apply Wizard, Settings）（承認済み）
-- **詳細実装計画**: 全16タスク（P5-01～P5-16）、推定34時間（承認済み）
+### 実装完了事項
 
-### 実装予定機能
-- **テンプレート機能**: SubProjectテンプレートの保存・一覧・適用・削除・dry-run
-- **Textual UI**: 全画面TUIアプリケーション（Textual 7.3.0）
-- **初回セットアップ支援**: DB未作成時の初回セットアップ導線
-- **バックアップ案内**: DBファイルパス表示・手動バックアップ手順案内
+#### Group 1: 基盤整備（P5-01～P5-03）✅
+- **P5-01**: プロジェクト構造整備完了（pmtool_textualパッケージ作成）
+- **P5-02**: Textual基本アプリケーション骨格完了（PMToolApp、BaseScreen）
+- **P5-03**: DB接続管理モジュール完了（DBManager）
+
+#### Group 2: テンプレート機能BL層（P5-04～P5-06）✅
+- **P5-04**: TemplateRepository実装完了（CRUD操作）
+- **P5-05**: TemplateManager基本実装完了（save/list/show/delete）
+- **P5-06**: TemplateManager高度機能実装完了（apply、dry-run、外部依存検出）
+
+#### Group 3: 基本UI（P5-07～P5-09）✅
+- **P5-07**: Home画面実装完了（Project一覧DataTable、起動確認済み）
+- **P5-08**: ProjectDetailScreen実装完了（4階層ツリー表示）
+- **P5-09**: SubProjectDetailScreen実装完了（Task/SubTaskツリー、テンプレート保存stub）
+- **キーバインド統一**: ESC=Back、H=Home（instanceof判定によるHome遷移）
+
+**動作確認:** `python -m pmtool_textual.app` で起動成功、H キーでのHome遷移動作確認済み
+
+### 実装予定機能（残タスク）
+
+#### Group 4: テンプレート機能UI（P5-10～P5-12）
+- **P5-10**: Template Hub画面実装（テンプレート一覧、選択、詳細表示）
+- **P5-11**: Template Save Wizard実装（SubProject選択、名前入力、dry-run、保存）
+- **P5-12**: Template Apply Wizard実装（Project/テンプレート選択、dry-run、適用）
+
+#### Group 5: 補助機能・品質向上（P5-13～P5-16）
+- **P5-13**: Settings画面実装（DBパス表示、バックアップ案内）
+- **P5-14**: 初回セットアップ支援（DB未作成時の導線）
+- **P5-15**: テスト整備・品質向上（テストカバレッジ80%目標）
+- **P5-16**: Phase 5完了レポート作成
 
 ### Phase 6以降（予定）
 - 検索・絞り込み機能
@@ -544,6 +566,36 @@ TaskをDONEにするには:
 
 ## 開発履歴
 
+### Phase 5 Group 3完了（2026-01-24）
+基本UI画面（P5-07～P5-09）実装完了・ChatGPTレビュー承認:
+- **P5-07～P5-09実装**: Home、ProjectDetail、SubProjectDetail画面完了
+  - HomeScreen: Project一覧DataTable表示
+  - ProjectDetailScreen: 4階層ツリー表示（Project→SubProject→Task→SubTask）
+  - SubProjectDetailScreen: Task/SubTaskツリー + テンプレート保存stub
+- **Repository方法名修正**: 設計書の仮定メソッド名を実際のRepository APIに修正
+  - `list_projects()` → `get_all()`、`get_project()` → `get_by_id()` 等
+- **H キー動作修正**: 6回の反復修正によりHome画面遷移を実現
+  - 最終版: `isinstance(self.screen, HomeScreen)` 判定によるpopループ
+  - Screen-level bindingをApp-level bindingに委譲
+- **動作確認**: `python -m pmtool_textual.app` 起動成功、レビュー承認
+
+コミット履歴:
+- 85b151b: feat: Phase 5 グループ3実装（基本UI画面）
+- c501e39: fix: Repositoryメソッド名修正
+- cc5ed21～703c425: fix: H キー動作修正（6コミット）
+
+### Phase 5 Group 2完了（2026-01-22）
+テンプレート機能BL層（P5-04～P5-06）実装完了・ChatGPTレビュー承認:
+- **P5-04**: TemplateRepository実装完了（CRUD操作）
+- **P5-05**: TemplateManager基本実装完了（save/list/show/delete）
+- **P5-06**: TemplateManager高度機能実装完了（apply、dry-run、外部依存検出）
+
+### Phase 5 Group 1完了（2026-01-22）
+基盤整備（P5-01～P5-03）実装完了・ChatGPTレビュー承認:
+- **P5-01**: プロジェクト構造整備（pmtool_textualパッケージ作成）
+- **P5-02**: Textual基本アプリケーション骨格（PMToolApp、BaseScreen）
+- **P5-03**: DB接続管理モジュール（DBManager）
+
 ### Phase 5 設計完了（2026-01-22）
 Textual UI + テンプレート機能の設計完了・実装着手可能:
 - **テンプレート機能BL設計書（P5-9 v1.1.1）**: TemplateManager/TemplateRepository設計（ChatGPTレビュー承認）
@@ -611,6 +663,8 @@ ChatGPTによるコードレビューフィードバックに対応:
 
 ## 更新履歴
 
+- 2026-01-24: Phase 5 Group 3完了状態を反映（基本UI画面実装完了、H キー動作修正完了）
+- 2026-01-22: Phase 5 Group 1-2完了状態を反映（基盤整備、テンプレート機能BL層実装完了）
 - 2026-01-22: Phase 5設計完了状態を反映（BL設計書、UI設計書、詳細実装計画書承認）
 - 2026-01-20: Phase 4完了状態を反映（P4-01〜P4-08全タスク完了、ユーザードキュメント整備、テンプレート仕様書作成）
 - 2026-01-18: Phase 3 P0完了状態を反映（拡張機能、pytest導入）

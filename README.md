@@ -6,14 +6,19 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 
 ## プロジェクトステータス
 
-**現在のフェーズ:** Phase 4 完了、Phase 5 設計完了・実装着手可能
+**現在のフェーズ:** Phase 5 実装中（Group 3完了、Group 4着手可能）
 
 - ✅ Phase 0: 基盤構築（DB設計、初期化スクリプト）
 - ✅ Phase 1: コア機能実装（CRUD、依存関係管理、ステータス管理、削除制御）
 - ✅ Phase 2: CLIインターフェース実装（Rich表示、エラーハンドリング）
 - ✅ Phase 3: 拡張機能（P0完了：UX改善、エラーメッセージ強化）
 - ✅ Phase 4: 品質・安定性向上（テストカバレッジ80%、ユーザードキュメント整備、テンプレート仕様書作成）
-- 🔨 Phase 5: Textual UI + テンプレート機能（設計完了、実装準備完了）
+- 🔨 Phase 5: Textual UI + テンプレート機能（Group 1-3完了、Group 4着手可能）
+  - ✅ Group 1: 基盤整備（P5-01～P5-03）
+  - ✅ Group 2: テンプレート機能BL層（P5-04～P5-06）
+  - ✅ Group 3: 基本UI（P5-07～P5-09）
+  - 🔨 Group 4: テンプレート機能UI（P5-10～P5-12）
+  - 🔨 Group 5: 補助機能・品質向上（P5-13～P5-16）
 
 ## 主要機能
 
@@ -265,6 +270,32 @@ db.close()
 
 ## 開発履歴
 
+### Phase 5 Group 3完了（2026-01-24）
+
+基本UI画面（P5-07～P5-09）実装完了・ChatGPTレビュー承認:
+- **P5-07**: HomeScreen実装（Project一覧DataTable表示）
+- **P5-08**: ProjectDetailScreen実装（4階層ツリー表示）
+- **P5-09**: SubProjectDetailScreen実装（Task/SubTaskツリー + テンプレート保存stub）
+- **Repositoryメソッド名修正**: 設計書の仮定メソッド名を実際のAPIに修正
+- **H キー動作修正**: instanceof判定によるHome画面遷移を実現（6回の反復修正）
+- **動作確認**: `python -m pmtool_textual.app` 起動成功
+
+コミット: 85b151b（初回実装）、c501e39（メソッド名修正）、cc5ed21～703c425（H キー修正6コミット）
+
+### Phase 5 Group 2完了（2026-01-22）
+
+テンプレート機能BL層（P5-04～P5-06）実装完了・ChatGPTレビュー承認:
+- **P5-04**: TemplateRepository実装（CRUD操作）
+- **P5-05**: TemplateManager基本実装（save/list/show/delete）
+- **P5-06**: TemplateManager高度機能実装（apply、dry-run、外部依存検出）
+
+### Phase 5 Group 1完了（2026-01-22）
+
+基盤整備（P5-01～P5-03）実装完了・ChatGPTレビュー承認:
+- **P5-01**: プロジェクト構造整備（pmtool_textualパッケージ作成）
+- **P5-02**: Textual基本アプリケーション骨格（PMToolApp、BaseScreen）
+- **P5-03**: DB接続管理モジュール（DBManager）
+
 ### Phase 5 設計完了（2026-01-22）
 
 Textual UI + テンプレート機能の設計完了・実装着手可能:
@@ -362,21 +393,29 @@ ChatGPTによるコードレビューフィードバックに対応:
 
 ## 今後の予定
 
-### Phase 5 実装（実装着手可能）
+### Phase 5 実装継続（Group 4以降）
 
-設計完了・実装準備完了:
-- **P5-01～P5-03**: 基盤整備（プロジェクト構造、Textual骨格、DB接続）
-- **P5-04～P5-06**: テンプレート機能BL層（TemplateRepository、TemplateManager）
-- **P5-07～P5-09**: 基本UI（Home、Project Detail、SubProject Detail）
+**残タスク:**
 - **P5-10～P5-12**: テンプレート機能UI（Template Hub、Save/Apply Wizard）
 - **P5-13～P5-16**: 補助機能・品質向上（Settings、初回セットアップ、テスト整備、完了レポート）
 
-推定工数: 約34時間
+**完了タスク:**
+- ✅ **P5-01～P5-03**: 基盤整備（プロジェクト構造、Textual骨格、DB接続）
+- ✅ **P5-04～P5-06**: テンプレート機能BL層（TemplateRepository、TemplateManager）
+- ✅ **P5-07～P5-09**: 基本UI（Home、Project Detail、SubProject Detail）
+
+残推定工数: 約12時間（Group 4: 8h、Group 5: 9h、Phase 5完了レポート: 1h）
 
 ### Phase 6 以降（予定）
 
-- Textual 等の全画面TUI（別プログラム/別系統として実装、現行CLIツールとは独立）
-- テンプレート機能実装（Textual版のみ）
+- 検索・絞り込み機能
+- メモ機能
+- 関連リンク管理
+- 外部ファイル添付
+- 変更履歴（ログ）
+- 一括操作
+- 複数DB管理
+- テンプレートexport/import
 
 ## ライセンス
 
