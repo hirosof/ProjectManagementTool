@@ -12,7 +12,6 @@ class ProjectDetailScreen(BaseScreen):
 
     BINDINGS = [
         Binding("escape", "back", "Back"),
-        Binding("h", "home", "Home"),
     ]
 
     def __init__(self, project_id: int):
@@ -107,8 +106,3 @@ class ProjectDetailScreen(BaseScreen):
     def action_back(self) -> None:
         """ESCキーで一つ前の画面に戻る"""
         self.app.pop_screen()
-
-    def action_home(self) -> None:
-        """HキーでHomeに戻る（画面スタックをクリア）"""
-        while len(self.app.screen_stack) > 1:
-            self.app.pop_screen()

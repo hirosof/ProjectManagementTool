@@ -13,7 +13,6 @@ class SubProjectDetailScreen(BaseScreen):
     BINDINGS = [
         Binding("s", "save_template", "Save Template"),
         Binding("escape", "back", "Back"),
-        Binding("h", "home", "Home"),
     ]
 
     def __init__(self, subproject_id: int):
@@ -85,8 +84,3 @@ class SubProjectDetailScreen(BaseScreen):
     def action_back(self) -> None:
         """ESCキーで一つ前の画面に戻る"""
         self.app.pop_screen()
-
-    def action_home(self) -> None:
-        """HキーでHomeに戻る（画面スタックをクリア）"""
-        while len(self.app.screen_stack) > 1:
-            self.app.pop_screen()
