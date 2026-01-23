@@ -43,14 +43,10 @@ class PMToolApp(App):
 
     def action_home(self) -> None:
         """HキーでHomeに戻る"""
-        # 画面スタックをクリアしてHomeに戻る
-        # Textualではpop_screen()で最後の1枚を削除できない（ScreenStackError）
-        # そのため、スタックが2枚以上ある間popし、最後にswitch_screen()でHomeに切り替え
-        while len(self.screen_stack) > 1:
+        # 現在の画面がHomeScreenでない限りpopを繰り返す
+        from .screens.home import HomeScreen
+        while len(self.screen_stack) > 1 and not isinstance(self.screen, HomeScreen):
             self.pop_screen()
-        # スタックに残った画面をHomeに切り替え
-        if self.screen_stack[0].id != "home":
-            self.switch_screen("home")
 
 
 def main() -> None:
