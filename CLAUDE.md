@@ -391,12 +391,16 @@ pmtool show project 1
 
 **動作確認:** `python -m pmtool_textual.app` で起動成功、H キーでのHome遷移動作確認済み
 
-### 実装予定機能（残タスク）
+#### Group 4: テンプレート機能UI（P5-10～P5-12）✅
+- **P5-10**: Template Hub画面実装完了（テンプレート一覧、選択、詳細表示、削除）
+- **P5-11**: Template Save Wizard実装完了（4ステップ、外部依存警告、保存）
+- **P5-12**: Template Apply Wizard実装完了（4ステップ、dry-runプレビュー、適用）
+- **DBコネクション管理改善**: Must fix対応完了（own_connパターン、接続有効性チェック）
+- **キーバインド**: T=Template Hub、S=Save Wizard（SubProject Detail）、A=Apply Wizard、D=Delete
 
-#### Group 4: テンプレート機能UI（P5-10～P5-12）
-- **P5-10**: Template Hub画面実装（テンプレート一覧、選択、詳細表示）
-- **P5-11**: Template Save Wizard実装（SubProject選択、名前入力、dry-run、保存）
-- **P5-12**: Template Apply Wizard実装（Project/テンプレート選択、dry-run、適用）
+**動作確認:** テンプレート保存・適用の全フロー動作確認済み、接続リークなし
+
+### 実装予定機能（残タスク）
 
 #### Group 5: 補助機能・品質向上（P5-13～P5-16）
 - **P5-13**: Settings画面実装（DBパス表示、バックアップ案内）
@@ -541,11 +545,15 @@ def method(self, ..., conn: Optional[sqlite3.Connection] = None) -> ...:
         if own_conn:
             conn.rollback()
         raise
+    finally:
+        if own_conn:
+            conn.close()
 ```
 
 このパターンにより:
-- 単独呼び出し時は自動的にトランザクション管理
+- 単独呼び出し時は自動的にトランザクション管理＋接続close
 - 親トランザクション内から呼び出された場合は、同一トランザクション内で実行
+- リソースリークを防止（Phase 5 Group 4で全メソッドに適用）
 
 ### 特徴的な実装
 
@@ -565,6 +573,24 @@ TaskをDONEにするには:
 新規作成時に `MAX(order_index) + 1` を自動計算し、表示順序を維持します。
 
 ## 開発履歴
+
+### Phase 5 Group 4完了（2026-01-24）
+テンプレート機能UI（P5-10～P5-12）実装完了・ChatGPTレビュー承認:
+- **P5-10～P5-12実装**: Template Hub、Save Wizard、Apply Wizard完了
+  - Template Hub: テンプレート一覧、詳細表示、削除（worker）
+  - Save Wizard: 4ステップ（SubProject選択、名前入力、オプション、確認・保存）
+  - Apply Wizard: 4ステップ（Template選択、Project選択、dry-run、新SubProject名・適用）
+- **外部依存検出機能**: 警告ダイアログ表示、ユーザー確認
+- **dry-runプレビュー**: 適用前の内容確認（件数サマリ、Task一覧）
+- **Must fix対応**: DBコネクション管理改善
+  - Database.connect()に接続有効性チェック追加（閉接続の自動再作成）
+  - TemplateManagerの全メソッドにfinally句追加（接続リーク防止）
+  - detect_external_dependencies()を公開API化（own_connパターン追加）
+- **動作確認**: テンプレート保存・適用の全フロー動作確認済み
+
+コミット履歴:
+- d2a8a43: feat: Phase 5 グループ4実装（テンプレート機能UI）
+- 96f0895: fix: DBコネクション管理の改善（Must fix対応）
 
 ### Phase 5 Group 3完了（2026-01-24）
 基本UI画面（P5-07～P5-09）実装完了・ChatGPTレビュー承認:
@@ -663,6 +689,7 @@ ChatGPTによるコードレビューフィードバックに対応:
 
 ## 更新履歴
 
+- 2026-01-24: Phase 5 Group 4完了状態を反映（テンプレート機能UI実装完了、DBコネクション管理改善）
 - 2026-01-24: Phase 5 Group 3完了状態を反映（基本UI画面実装完了、H キー動作修正完了）
 - 2026-01-22: Phase 5 Group 1-2完了状態を反映（基盤整備、テンプレート機能BL層実装完了）
 - 2026-01-22: Phase 5設計完了状態を反映（BL設計書、UI設計書、詳細実装計画書承認）

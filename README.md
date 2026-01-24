@@ -149,6 +149,9 @@ pmtool --help
 pmtool list projects
 pmtool add project --name "テストプロジェクト" --desc "説明"
 pmtool show project 1
+
+# Textual UI起動（Phase 5）
+python -m pmtool_textual.app
 ```
 
 期待される出力：すべてのテストが成功（✓ マーク）
@@ -199,7 +202,30 @@ pmtool の使い方を学ぶための詳細なドキュメントが用意され�
 
 ## 使用例
 
-### Phase 2: CLIコマンド（推奨）
+### Phase 5: Textual UI（最新・推奨）
+
+```bash
+# Textual UI起動
+python -m pmtool_textual.app
+
+# 主要な操作:
+# - H キー: Home画面へ戻る
+# - T キー: Template Hub（テンプレート管理）
+# - Enter: Project詳細表示、SubProject詳細表示
+# - S キー: テンプレート保存（SubProject Detail画面）
+# - ESC キー: 前の画面に戻る
+# - Q キー: アプリケーション終了
+```
+
+**実装済み機能（Phase 5 Group 1-4完了）:**
+- Home画面（Project一覧）
+- ProjectDetail画面（4階層ツリー表示）
+- SubProjectDetail画面（Task/SubTaskツリー）
+- Template Hub（テンプレート一覧、詳細表示、削除）
+- Template Save Wizard（4ステップ、外部依存警告）
+- Template Apply Wizard（4ステップ、dry-runプレビュー）
+
+### Phase 2: CLIコマンド
 
 ```bash
 # プロジェクト一覧表示
@@ -269,6 +295,20 @@ db.close()
 ```
 
 ## 開発履歴
+
+### Phase 5 Group 4完了（2026-01-24）
+
+テンプレート機能UI（P5-10～P5-12）実装完了・ChatGPTレビュー承認:
+- **P5-10**: Template Hub画面実装（一覧、詳細表示、削除機能）
+- **P5-11**: Template Save Wizard実装（4ステップ、外部依存警告ダイアログ）
+- **P5-12**: Template Apply Wizard実装（4ステップ、dry-runプレビュー）
+- **Must fix対応完了**: DBコネクション管理改善
+  - Database.connect()に接続有効性チェック追加（閉接続の自動再作成）
+  - TemplateManagerの全メソッドにfinally句追加（接続リーク防止）
+  - detect_external_dependencies()を公開API化（own_connパターン追加）
+- **動作確認**: テンプレート保存・適用の全フロー動作確認済み、接続リークなし
+
+コミット: d2a8a43（初回実装）、96f0895（Must fix対応）
 
 ### Phase 5 Group 3完了（2026-01-24）
 
