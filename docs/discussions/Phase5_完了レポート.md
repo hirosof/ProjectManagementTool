@@ -196,6 +196,7 @@ Phase 5 は、**Textual UI + テンプレート機能の実装フェーズ**と�
   - `template.py`から`conn.close()`をすべて削除
   - `Database.connect()`の接続キャッシュ機能を活用
   - in-memoryデータベースでの同一接続共有を実現
+  - **接続管理方針**: アプリ生存期間で接続を保持し、アプリ終了時に`PMToolApp.on_unmount()`で`Database.close()`を呼び出すことで接続を確実にクローズ
 - API仕様の統一
   - `apply_template()`の戻り値: SubProject ID（設計書通り）
   - `dry_run()`の戻り値: `template_name`、`tasks`キーを追加

@@ -79,6 +79,12 @@ class PMToolApp(App):
         while len(self.screen_stack) > 1 and not isinstance(self.screen, HomeScreen):
             self.pop_screen()
 
+    def on_unmount(self) -> None:
+        """アプリケーション終了時の処理"""
+        # DB接続をクローズ
+        if self.db_manager.db is not None:
+            self.db_manager.db.close()
+
 
 def main() -> None:
     """エントリーポイント"""
