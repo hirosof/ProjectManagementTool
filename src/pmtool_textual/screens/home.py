@@ -66,9 +66,7 @@ class HomeScreen(BaseScreen):
 
     def action_settings(self) -> None:
         """Settings画面へ遷移"""
-        # TODO: P5-13でSettingsScreenを実装後、遷移処理を追加
-        # self.app.push_screen("settings")
-        pass
+        self.app.push_settings()
 
     def action_quit(self) -> None:
         """アプリケーション終了"""

@@ -7,6 +7,7 @@ from .screens.subproject_detail import SubProjectDetailScreen
 from .screens.template_hub import TemplateHubScreen
 from .screens.template_save_wizard import TemplateSaveWizardScreen
 from .screens.template_apply_wizard import TemplateApplyWizardScreen
+from .screens.settings import SettingsScreen
 from .utils.db_manager import DBManager
 
 
@@ -54,6 +55,11 @@ class PMToolApp(App):
     def push_apply_wizard(self, template_id: int = None) -> None:
         """TemplateApplyWizardScreenへ遷移"""
         screen = TemplateApplyWizardScreen(template_id=template_id)
+        self.push_screen(screen)
+
+    def push_settings(self) -> None:
+        """SettingsScreenへ遷移"""
+        screen = SettingsScreen()
         self.push_screen(screen)
 
     def action_quit(self) -> None:
