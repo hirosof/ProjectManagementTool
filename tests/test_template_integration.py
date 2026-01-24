@@ -70,21 +70,23 @@ def test_save_and_apply_basic(managers):
     # ===== 別のProjectに適用 =====
     project2 = managers["project"].create("Project2", "desc")
 
-    new_subproject = managers["template"].apply_template(
+    new_subproject_id = managers["template"].apply_template(
         template_id=result.template.id,
         project_id=project2.id,
         new_subproject_name="Applied SubProject",
     )
 
+    # apply_template()はSubProject IDを返すので、get_by_id()で取得
+    new_subproject = managers["subproject"].get_by_id(new_subproject_id)
     assert new_subproject is not None
     assert new_subproject.name == "Applied SubProject"
     assert new_subproject.project_id == project2.id
 
     # ===== 適用後のTask/SubTask確認 =====
-    new_tasks = managers["task"].get_tasks_by_subproject(new_subproject.id)
+    new_tasks = managers["task"].get_by_parent(project2.id, new_subproject_id)
     assert len(new_tasks) == 2
 
-    new_subtasks = managers["subtask"].get_subtasks_by_task(new_tasks[0].id)
+    new_subtasks = managers["subtask"].get_by_task(new_tasks[0].id)
     assert len(new_subtasks) == 1
 
 
@@ -115,18 +117,19 @@ def test_save_and_apply_with_dependencies(managers):
 
     # ===== 適用 =====
     project2 = managers["project"].create("Project2", "desc")
-    new_subproject = managers["template"].apply_template(
+    new_subproject_id = managers["template"].apply_template(
         template_id=result.template.id,
         project_id=project2.id,
         new_subproject_name="Applied with Deps",
     )
 
     # ===== 適用後の依存関係確認 =====
-    new_tasks = managers["task"].get_tasks_by_subproject(new_subproject.id)
+    new_tasks = managers["task"].get_by_parent(project2.id, new_subproject_id)
     assert len(new_tasks) == 3
 
     # Task1の後続確認
-    successors = managers["dep"].get_task_successors(new_tasks[0].id)
+    deps = managers["dep"].get_task_dependencies(new_tasks[0].id)
+    successors = deps["successors"]
 
     assert len(successors) > 0
 
@@ -161,19 +164,19 @@ def test_save_and_apply_large_template(managers):
 
     # ===== 適用 =====
     project2 = managers["project"].create("Project2", "desc")
-    new_subproject = managers["template"].apply_template(
+    new_subproject_id = managers["template"].apply_template(
         template_id=result.template.id,
         project_id=project2.id,
         new_subproject_name="Applied Large",
     )
 
     # ===== 適用後のノード数確認 =====
-    new_tasks = managers["task"].get_tasks_by_subproject(new_subproject.id)
+    new_tasks = managers["task"].get_by_parent(project2.id, new_subproject_id)
     assert len(new_tasks) == 50
 
     total_subtasks = 0
     for task in new_tasks:
-        subtasks = managers["subtask"].get_subtasks_by_task(task.id)
+        subtasks = managers["subtask"].get_by_task(task.id)
         total_subtasks += len(subtasks)
 
     assert total_subtasks == 100
@@ -265,18 +268,20 @@ def test_apply_template_multiple_times(managers):
     project2 = managers["project"].create("Project2", "desc")
     project3 = managers["project"].create("Project3", "desc")
 
-    new_subproject1 = managers["template"].apply_template(
+    new_subproject1_id = managers["template"].apply_template(
         template_id=result.template.id,
         project_id=project2.id,
         new_subproject_name="Applied1",
     )
 
-    new_subproject2 = managers["template"].apply_template(
+    new_subproject2_id = managers["template"].apply_template(
         template_id=result.template.id,
         project_id=project3.id,
         new_subproject_name="Applied2",
     )
 
+    new_subproject1 = managers["subproject"].get_by_id(new_subproject1_id)
+    new_subproject2 = managers["subproject"].get_by_id(new_subproject2_id)
     assert new_subproject1.project_id == project2.id
     assert new_subproject2.project_id == project3.id
 
@@ -298,7 +303,7 @@ def test_delete_template_does_not_affect_applied(managers):
     )
 
     project2 = managers["project"].create("Project2", "desc")
-    new_subproject = managers["template"].apply_template(
+    new_subproject_id = managers["template"].apply_template(
         template_id=result.template.id,
         project_id=project2.id,
         new_subproject_name="Applied",
@@ -308,8 +313,8 @@ def test_delete_template_does_not_affect_applied(managers):
     managers["template"].delete_template(result.template.id)
 
     # ===== 適用済みのSubProjectは影響を受けない =====
-    still_exists = managers["subproject"].get_by_id(new_subproject.id)
+    still_exists = managers["subproject"].get_by_id(new_subproject_id)
     assert still_exists is not None
 
-    tasks = managers["task"].get_tasks_by_subproject(new_subproject.id)
+    tasks = managers["task"].get_by_parent(project2.id, new_subproject_id)
     assert len(tasks) == 1

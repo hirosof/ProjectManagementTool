@@ -203,12 +203,14 @@ def test_apply_template_basic(template_manager, repos):
     # 別のProjectに適用
     project2 = repos["project"].create("Project2", "desc")
 
-    new_subproject = template_manager.apply_template(
+    new_subproject_id = template_manager.apply_template(
         template_id=result.template.id,
         project_id=project2.id,
         new_subproject_name="Applied SubProject",
     )
 
+    # apply_template()はSubProject IDを返すので、get_by_id()で取得
+    new_subproject = repos["subproject"].get_by_id(new_subproject_id)
     assert new_subproject is not None
     assert new_subproject.name == "Applied SubProject"
     assert new_subproject.project_id == project2.id
