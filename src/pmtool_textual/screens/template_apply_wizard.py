@@ -183,7 +183,7 @@ class TemplateApplyWizardScreen(BaseScreen):
 
 Task一覧:
 """
-        for task_name in self.dry_run_result['task_names']:
+        for task_name in self.dry_run_result['tasks']:
             preview_text += f"  📋 {task_name}\n"
 
         container.mount(Static(preview_text.strip(), id="step3_preview"))
