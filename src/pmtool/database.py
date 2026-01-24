@@ -49,6 +49,15 @@ class Database:
         Returns:
             sqlite3.Connection: データベース接続オブジェクト
         """
+        # 既存のコネクションがcloseされている場合は再作成
+        if self._connection is not None:
+            try:
+                # コネクションの有効性をチェック
+                self._connection.execute("SELECT 1")
+            except sqlite3.ProgrammingError:
+                # closeされている場合は再作成
+                self._connection = None
+
         if self._connection is None:
             self._connection = sqlite3.connect(str(self.db_path))
             # Row factoryを設定（カラム名でアクセス可能にする）

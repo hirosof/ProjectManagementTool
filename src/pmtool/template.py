@@ -147,12 +147,15 @@ class TemplateManager:
 
         try:
             # 1. SubProjectの存在確認
-            subproject = self.subproject_repo.get_by_id(subproject_id)
-            if subproject is None:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, project_id FROM subprojects WHERE id = ?", (subproject_id,))
+            subproject_row = cursor.fetchone()
+            if subproject_row is None:
                 raise EntityNotFoundError(f"SubProject ID {subproject_id} が見つかりません")
+            project_id = subproject_row["project_id"]
 
             # 2. 外部依存の検出
-            external_warnings = self._detect_external_dependencies(subproject_id, conn)
+            external_warnings = self.detect_external_dependencies(subproject_id, conn)
 
             # 3. templatesレコード作成
             template = self.template_repo.add_template(
@@ -166,7 +169,7 @@ class TemplateManager:
             if include_tasks:
                 # Task一覧取得（order_index昇順）
                 tasks = self.task_repo.get_by_parent(
-                    project_id=subproject.project_id,
+                    project_id=project_id,
                     subproject_id=subproject_id,
                 )
 
@@ -225,6 +228,9 @@ class TemplateManager:
             if own_conn:
                 conn.rollback()
             raise
+        finally:
+            if own_conn:
+                conn.close()
 
     def apply_template(
         self,
@@ -351,6 +357,9 @@ class TemplateManager:
             if own_conn:
                 conn.rollback()
             raise
+        finally:
+            if own_conn:
+                conn.close()
 
     def dry_run(
         self,
@@ -373,67 +382,73 @@ class TemplateManager:
         Raises:
             EntityNotFoundError: テンプレートまたはProjectが存在しない
         """
+        own_conn = False
         if conn is None:
             conn = self.db.connect()
+            own_conn = True
 
-        # 1. テンプレート存在確認
-        template = self.template_repo.get_template(template_id, conn)
-        if template is None:
-            raise EntityNotFoundError(f"テンプレートID {template_id} が見つかりません")
+        try:
+            # 1. テンプレート存在確認
+            template = self.template_repo.get_template(template_id, conn)
+            if template is None:
+                raise EntityNotFoundError(f"テンプレートID {template_id} が見つかりません")
 
-        # 2. Project存在確認
-        from .repository import ProjectRepository
+            # 2. Project存在確認
+            from .repository import ProjectRepository
 
-        project_repo = ProjectRepository(self.db)
-        project = project_repo.get_by_id(project_id)
-        if project is None:
-            raise EntityNotFoundError(f"Project ID {project_id} が見つかりません")
+            project_repo = ProjectRepository(self.db)
+            project = project_repo.get_by_id(project_id)
+            if project is None:
+                raise EntityNotFoundError(f"Project ID {project_id} が見つかりません")
 
-        # 3. テンプレート内容取得
-        template_tasks = self.template_repo.get_template_tasks(template_id, conn)
-        template_subtasks = self.template_repo.get_template_subtasks(template_id, conn)
-        template_deps = self.template_repo.get_template_dependencies(template_id, conn)
+            # 3. テンプレート内容取得
+            template_tasks = self.template_repo.get_template_tasks(template_id, conn)
+            template_subtasks = self.template_repo.get_template_subtasks(template_id, conn)
+            template_deps = self.template_repo.get_template_dependencies(template_id, conn)
 
-        # 4. 件数サマリ計算
-        task_count = len(template_tasks)
-        subtask_count = len(template_subtasks)
-        dependency_count = len(template_deps)
+            # 4. 件数サマリ計算
+            task_count = len(template_tasks)
+            subtask_count = len(template_subtasks)
+            dependency_count = len(template_deps)
 
-        # 5. 1階層ツリー生成
-        if new_subproject_name is None:
-            new_subproject_name = template.name
+            # 5. 1階層ツリー生成
+            if new_subproject_name is None:
+                new_subproject_name = template.name
 
-        task_names = []
-        # template_task_idごとのSubTask数をカウント
-        subtask_counts = {}
-        for ts in template_subtasks:
-            subtask_counts[ts.template_task_id] = (
-                subtask_counts.get(ts.template_task_id, 0) + 1
-            )
+            task_names = []
+            # template_task_idごとのSubTask数をカウント
+            subtask_counts = {}
+            for ts in template_subtasks:
+                subtask_counts[ts.template_task_id] = (
+                    subtask_counts.get(ts.template_task_id, 0) + 1
+                )
 
-        for tt in template_tasks:
-            st_count = subtask_counts.get(tt.id, 0)
-            if st_count > 0:
-                task_names.append(f"{tt.name} (SubTasks: {st_count})")
-            else:
-                task_names.append(tt.name)
+            for tt in template_tasks:
+                st_count = subtask_counts.get(tt.id, 0)
+                if st_count > 0:
+                    task_names.append(f"{tt.name} (SubTasks: {st_count})")
+                else:
+                    task_names.append(tt.name)
 
-        return {
-            "subproject_name": new_subproject_name,
-            "task_count": task_count,
-            "subtask_count": subtask_count,
-            "dependency_count": dependency_count,
-            "task_names": task_names,
-        }
+            return {
+                "subproject_name": new_subproject_name,
+                "task_count": task_count,
+                "subtask_count": subtask_count,
+                "dependency_count": dependency_count,
+                "task_names": task_names,
+            }
+        finally:
+            if own_conn:
+                conn.close()
 
     # ============================================================
     # 内部メソッド (P5-06)
     # ============================================================
 
-    def _detect_external_dependencies(
+    def detect_external_dependencies(
         self,
         subproject_id: int,
-        conn: sqlite3.Connection,
+        conn: Optional[sqlite3.Connection] = None,
     ) -> list[ExternalDependencyWarning]:
         """外部依存を検出（警告情報として返す）
 
@@ -441,74 +456,83 @@ class TemplateManager:
 
         Args:
             subproject_id: SubProject ID
-            conn: DB接続
+            conn: トランザクション用接続（オプション）
 
         Returns:
             外部依存警告のリスト
         """
-        warnings = []
+        own_conn = False
+        if conn is None:
+            conn = self.db.connect()
+            own_conn = True
 
-        # SubProject配下のTask一覧取得
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id, name FROM tasks WHERE subproject_id = ?", (subproject_id,)
-        )
-        internal_tasks = {row["id"]: row["name"] for row in cursor.fetchall()}
+        try:
+            warnings = []
 
-        if not internal_tasks:
+            # SubProject配下のTask一覧取得
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, name FROM tasks WHERE subproject_id = ?", (subproject_id,)
+            )
+            internal_tasks = {row["id"]: row["name"] for row in cursor.fetchall()}
+
+            if not internal_tasks:
+                return warnings
+
+            # 各Taskの依存関係をチェック
+            for task_id, task_name in internal_tasks.items():
+                # 先行Task（このTaskが依存しているTask）
+                cursor.execute(
+                    """
+                    SELECT t.id, t.name
+                    FROM tasks t
+                    JOIN task_dependencies td ON t.id = td.predecessor_id
+                    WHERE td.successor_id = ?
+                    """,
+                    (task_id,),
+                )
+                for row in cursor.fetchall():
+                    pred_id = row["id"]
+                    if pred_id not in internal_tasks:
+                        # 外部への依存（outgoing）
+                        warnings.append(
+                            ExternalDependencyWarning(
+                                from_task_id=task_id,
+                                to_task_id=pred_id,
+                                from_task_name=task_name,
+                                to_task_name=row["name"],
+                                direction="outgoing",
+                            )
+                        )
+
+                # 後続Task（このTaskに依存しているTask）
+                cursor.execute(
+                    """
+                    SELECT t.id, t.name
+                    FROM tasks t
+                    JOIN task_dependencies td ON t.id = td.successor_id
+                    WHERE td.predecessor_id = ?
+                    """,
+                    (task_id,),
+                )
+                for row in cursor.fetchall():
+                    succ_id = row["id"]
+                    if succ_id not in internal_tasks:
+                        # 外部からの依存（incoming）
+                        warnings.append(
+                            ExternalDependencyWarning(
+                                from_task_id=succ_id,
+                                to_task_id=task_id,
+                                from_task_name=row["name"],
+                                to_task_name=task_name,
+                                direction="incoming",
+                            )
+                        )
+
             return warnings
-
-        # 各Taskの依存関係をチェック
-        for task_id, task_name in internal_tasks.items():
-            # 先行Task（このTaskが依存しているTask）
-            cursor.execute(
-                """
-                SELECT t.id, t.name
-                FROM tasks t
-                JOIN task_dependencies td ON t.id = td.predecessor_id
-                WHERE td.successor_id = ?
-                """,
-                (task_id,),
-            )
-            for row in cursor.fetchall():
-                pred_id = row["id"]
-                if pred_id not in internal_tasks:
-                    # 外部への依存（outgoing）
-                    warnings.append(
-                        ExternalDependencyWarning(
-                            from_task_id=task_id,
-                            to_task_id=pred_id,
-                            from_task_name=task_name,
-                            to_task_name=row["name"],
-                            direction="outgoing",
-                        )
-                    )
-
-            # 後続Task（このTaskに依存しているTask）
-            cursor.execute(
-                """
-                SELECT t.id, t.name
-                FROM tasks t
-                JOIN task_dependencies td ON t.id = td.successor_id
-                WHERE td.predecessor_id = ?
-                """,
-                (task_id,),
-            )
-            for row in cursor.fetchall():
-                succ_id = row["id"]
-                if succ_id not in internal_tasks:
-                    # 外部からの依存（incoming）
-                    warnings.append(
-                        ExternalDependencyWarning(
-                            from_task_id=succ_id,
-                            to_task_id=task_id,
-                            from_task_name=row["name"],
-                            to_task_name=task_name,
-                            direction="incoming",
-                        )
-                    )
-
-        return warnings
+        finally:
+            if own_conn:
+                conn.close()
 
     def _get_internal_dependencies(
         self,

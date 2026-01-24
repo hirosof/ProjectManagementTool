@@ -271,10 +271,8 @@ Task含む: {"はい" if self.include_tasks else "いいえ"}
                 return
 
             # 2. 外部依存事前検出
-            conn = db.connect()
-            external_warnings = template_manager._detect_external_dependencies(
+            external_warnings = template_manager.detect_external_dependencies(
                 subproject_id=self.selected_subproject_id,
-                conn=conn,
             )
 
             # 3. 警告表示・確認
