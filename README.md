@@ -6,19 +6,19 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 
 ## プロジェクトステータス
 
-**現在のフェーズ:** Phase 5 実装中（Group 3完了、Group 4着手可能）
+**現在のフェーズ:** Phase 5 実装中（Group 5実装途中）
 
 - ✅ Phase 0: 基盤構築（DB設計、初期化スクリプト）
 - ✅ Phase 1: コア機能実装（CRUD、依存関係管理、ステータス管理、削除制御）
 - ✅ Phase 2: CLIインターフェース実装（Rich表示、エラーハンドリング）
 - ✅ Phase 3: 拡張機能（P0完了：UX改善、エラーメッセージ強化）
 - ✅ Phase 4: 品質・安定性向上（テストカバレッジ80%、ユーザードキュメント整備、テンプレート仕様書作成）
-- 🔨 Phase 5: Textual UI + テンプレート機能（Group 1-3完了、Group 4着手可能）
+- 🔨 Phase 5: Textual UI + テンプレート機能（Group 5実装途中）
   - ✅ Group 1: 基盤整備（P5-01～P5-03）
   - ✅ Group 2: テンプレート機能BL層（P5-04～P5-06）
   - ✅ Group 3: 基本UI（P5-07～P5-09）
-  - 🔨 Group 4: テンプレート機能UI（P5-10～P5-12）
-  - 🔨 Group 5: 補助機能・品質向上（P5-13～P5-16）
+  - ✅ Group 4: テンプレート機能UI（P5-10～P5-12）
+  - 🔨 Group 5: 補助機能・品質向上（P5-13, P5-14完了、P5-15実装途中、P5-16未着手）
 
 ## 主要機能
 
@@ -211,19 +211,22 @@ python -m pmtool_textual.app
 # 主要な操作:
 # - H キー: Home画面へ戻る
 # - T キー: Template Hub（テンプレート管理）
+# - S キー: Settings画面（DBパス表示、バックアップ案内）
 # - Enter: Project詳細表示、SubProject詳細表示
 # - S キー: テンプレート保存（SubProject Detail画面）
 # - ESC キー: 前の画面に戻る
 # - Q キー: アプリケーション終了
 ```
 
-**実装済み機能（Phase 5 Group 1-4完了）:**
+**実装済み機能（Phase 5 Group 1-4完了、Group 5部分完了）:**
 - Home画面（Project一覧）
 - ProjectDetail画面（4階層ツリー表示）
 - SubProjectDetail画面（Task/SubTaskツリー）
 - Template Hub（テンプレート一覧、詳細表示、削除）
 - Template Save Wizard（4ステップ、外部依存警告）
 - Template Apply Wizard（4ステップ、dry-runプレビュー）
+- Settings画面（DBパス表示、バックアップ案内）
+- Setup画面（初回起動時のDB初期化）
 
 ### Phase 2: CLIコマンド
 

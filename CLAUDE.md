@@ -400,12 +400,34 @@ pmtool show project 1
 
 **動作確認:** テンプレート保存・適用の全フロー動作確認済み、接続リークなし
 
+#### Group 5: 補助機能・品質向上（P5-13～P5-16）🔄
+- **P5-13**: Settings画面実装完了（DBパス表示、バックアップ案内）✅
+- **P5-14**: 初回セットアップ支援完了（DB未作成時の導線）✅
+- **P5-15**: テスト整備・品質向上（テストカバレッジ80%目標）🔄
+- **P5-16**: Phase 5完了レポート作成 ⏳
+
+**P5-13（Settings画面）完了内容:**
+- Settings画面クラス作成（`src/pmtool_textual/screens/settings.py`）
+- DBパス表示（絶対パス変換）、バックアップ手順案内（3ステップ）
+- ESCキーで前画面に戻る、app.pyに`push_settings()`追加
+- コミット: 3ba9455
+
+**P5-14（初回セットアップ支援）完了内容:**
+- Setup画面クラス作成（`src/pmtool_textual/screens/setup.py`）
+- シンプルなUI、DB初期化処理、`__file__`から相対パスで`scripts/init_db.sql`取得
+- 初期化成功後のHome画面遷移、app.pyの`on_mount()`でDB存在チェック
+- DBパス: 固定パス（`data/pmtool.db`）で自動作成
+- コミット: e8a5668
+
+**P5-15（テスト整備）実装途中:**
+- テストファイル作成完了: `test_template.py`、`test_template_repository.py`、`test_template_integration.py`
+- テストコードのメソッド名修正が必要（`create_project` → `create`等）
+- カバレッジ測定・80%達成確認が未完了
+
 ### 実装予定機能（残タスク）
 
-#### Group 5: 補助機能・品質向上（P5-13～P5-16）
-- **P5-13**: Settings画面実装（DBパス表示、バックアップ案内）
-- **P5-14**: 初回セットアップ支援（DB未作成時の導線）
-- **P5-15**: テスト整備・品質向上（テストカバレッジ80%目標）
+#### Group 5完了予定（残2タスク）
+- **P5-15**: テスト整備・品質向上（修正中、カバレッジ80%目標）
 - **P5-16**: Phase 5完了レポート作成
 
 ### Phase 6以降（予定）
@@ -574,6 +596,23 @@ TaskをDONEにするには:
 
 ## 開発履歴
 
+### Phase 5 Group 5実装途中（2026-01-25）
+補助機能・品質向上（P5-13～P5-16）実装中:
+- **P5-13完了**: Settings画面実装（DBパス表示、バックアップ案内）
+  - Settings画面クラス作成（`src/pmtool_textual/screens/settings.py`）
+  - DBパス表示（絶対パス変換）、バックアップ手順案内（3ステップ）
+  - コミット: 3ba9455
+- **P5-14完了**: 初回セットアップ支援実装
+  - Setup画面クラス作成（`src/pmtool_textual/screens/setup.py`）
+  - DB未作成時の自動検出、固定パス（`data/pmtool.db`）で自動初期化
+  - `__file__`から相対パスで`scripts/init_db.sql`取得
+  - コミット: e8a5668
+- **P5-15実装途中**: テスト整備・品質向上
+  - テストファイル作成完了: `test_template.py`（18ケース）、`test_template_repository.py`（22ケース）、`test_template_integration.py`（9ケース）
+  - テストコード修正が必要（メソッド名の誤り）
+  - カバレッジ測定・80%達成確認が未完了
+- **P5-16未着手**: Phase 5完了レポート作成
+
 ### Phase 5 Group 4完了（2026-01-24）
 テンプレート機能UI（P5-10～P5-12）実装完了・ChatGPTレビュー承認:
 - **P5-10～P5-12実装**: Template Hub、Save Wizard、Apply Wizard完了
@@ -689,6 +728,7 @@ ChatGPTによるコードレビューフィードバックに対応:
 
 ## 更新履歴
 
+- 2026-01-25: Phase 5 Group 5実装途中状態を反映（P5-13, P5-14完了、P5-15実装途中、P5-16未着手）
 - 2026-01-24: Phase 5 Group 4完了状態を反映（テンプレート機能UI実装完了、DBコネクション管理改善）
 - 2026-01-24: Phase 5 Group 3完了状態を反映（基本UI画面実装完了、H キー動作修正完了）
 - 2026-01-22: Phase 5 Group 1-2完了状態を反映（基盤整備、テンプレート機能BL層実装完了）
