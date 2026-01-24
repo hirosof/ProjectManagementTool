@@ -19,6 +19,11 @@ class ValidationError(PMToolError):
     pass
 
 
+class EntityNotFoundError(PMToolError):
+    """エンティティが見つからない場合に発生 (例: 存在しないIDへのアクセス)"""
+    pass
+
+
 class ConstraintViolationError(PMToolError):
     """データベースまたはビジネスロジックの制約に違反した場合に発生"""
     pass

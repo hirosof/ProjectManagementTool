@@ -147,7 +147,7 @@ class TemplateManager:
 
         try:
             # 1. SubProjectの存在確認
-            subproject = self.subproject_repo.get_subproject(subproject_id, conn)
+            subproject = self.subproject_repo.get_by_id(subproject_id)
             if subproject is None:
                 raise EntityNotFoundError(f"SubProject ID {subproject_id} が見つかりません")
 
@@ -165,10 +165,9 @@ class TemplateManager:
             # 4. include_tasks=Trueの場合、Task/SubTask/依存関係を保存
             if include_tasks:
                 # Task一覧取得（order_index昇順）
-                tasks = self.task_repo.list_tasks(
+                tasks = self.task_repo.get_by_parent(
                     project_id=subproject.project_id,
                     subproject_id=subproject_id,
-                    conn=conn,
                 )
 
                 # Task IDからtask_orderへのマッピング構築
@@ -186,7 +185,7 @@ class TemplateManager:
 
                 # SubTask保存
                 for task_order, task in enumerate(tasks):
-                    subtasks = self.subtask_repo.list_subtasks(task.id, conn)
+                    subtasks = self.subtask_repo.get_by_task(task.id)
                     for subtask_order, subtask in enumerate(subtasks):
                         # template_task_idを取得（template_idとtask_orderから）
                         template_tasks = self.template_repo.get_template_tasks(
@@ -263,7 +262,7 @@ class TemplateManager:
             from .repository import ProjectRepository
 
             project_repo = ProjectRepository(self.db)
-            project = project_repo.get_project(project_id, conn)
+            project = project_repo.get_by_id(project_id)
             if project is None:
                 raise EntityNotFoundError(f"Project ID {project_id} が見つかりません")
 
@@ -283,13 +282,11 @@ class TemplateManager:
             )
             order_index = cursor.fetchone()[0]
 
-            new_subproject = self.subproject_repo.add_subproject(
+            new_subproject = self.subproject_repo.create(
                 project_id=project_id,
                 name=new_subproject_name,
                 description=template.description,
                 parent_subproject_id=None,
-                order_index=order_index,
-                conn=conn,
             )
 
             # 4. include_tasks=Trueの場合、Task/SubTask/依存関係を複製
@@ -299,14 +296,12 @@ class TemplateManager:
                 task_order_to_id = {}  # task_order -> 新Task ID のマッピング
 
                 for template_task in template_tasks:
-                    new_task = self.task_repo.add_task(
+                    new_task = self.task_repo.create(
                         project_id=project_id,
                         subproject_id=new_subproject.id,
                         name=template_task.name,
                         description=template_task.description,
                         status="UNSET",
-                        order_index=template_task.task_order,
-                        conn=conn,
                     )
                     task_order_to_id[template_task.task_order] = new_task.id
 
@@ -327,13 +322,11 @@ class TemplateManager:
                     subtasks = subtasks_by_template_task.get(template_task.id, [])
 
                     for template_subtask in subtasks:
-                        self.subtask_repo.add_subtask(
+                        self.subtask_repo.create(
                             task_id=new_task_id,
                             name=template_subtask.name,
                             description=template_subtask.description,
                             status="UNSET",
-                            order_index=template_subtask.subtask_order,
-                            conn=conn,
                         )
 
                 # 内部依存関係再接続
@@ -345,8 +338,8 @@ class TemplateManager:
                     pred_task_id = task_order_to_id[dep.predecessor_order]
                     succ_task_id = task_order_to_id[dep.successor_order]
 
-                    self.dep_manager.add_dependency(
-                        pred_task_id, succ_task_id, "task", conn=conn
+                    self.dep_manager.add_task_dependency(
+                        pred_task_id, succ_task_id
                     )
 
             if own_conn:
@@ -392,7 +385,7 @@ class TemplateManager:
         from .repository import ProjectRepository
 
         project_repo = ProjectRepository(self.db)
-        project = project_repo.get_project(project_id, conn)
+        project = project_repo.get_by_id(project_id)
         if project is None:
             raise EntityNotFoundError(f"Project ID {project_id} が見つかりません")
 

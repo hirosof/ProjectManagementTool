@@ -62,9 +62,7 @@ class HomeScreen(BaseScreen):
 
     def action_template_hub(self) -> None:
         """Template Hub画面へ遷移"""
-        # TODO: P5-10でTemplateHubScreenを実装後、遷移処理を追加
-        # self.app.push_screen("template_hub")
-        pass
+        self.app.push_template_hub()
 
     def action_settings(self) -> None:
         """Settings画面へ遷移"""

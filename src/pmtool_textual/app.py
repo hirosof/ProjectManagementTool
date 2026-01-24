@@ -4,6 +4,9 @@ from textual.binding import Binding
 from .screens.home import HomeScreen
 from .screens.project_detail import ProjectDetailScreen
 from .screens.subproject_detail import SubProjectDetailScreen
+from .screens.template_hub import TemplateHubScreen
+from .screens.template_save_wizard import TemplateSaveWizardScreen
+from .screens.template_apply_wizard import TemplateApplyWizardScreen
 from .utils.db_manager import DBManager
 
 
@@ -35,6 +38,22 @@ class PMToolApp(App):
     def push_subproject_detail(self, subproject_id: int) -> None:
         """SubProjectDetailScreenへ遷移"""
         screen = SubProjectDetailScreen(subproject_id=subproject_id)
+        self.push_screen(screen)
+
+    def push_template_hub(self) -> None:
+        """TemplateHubScreenへ遷移"""
+        # 毎回新しいインスタンスを作成して最新データを表示
+        screen = TemplateHubScreen()
+        self.push_screen(screen)
+
+    def push_save_wizard(self, subproject_id: int = None) -> None:
+        """TemplateSaveWizardScreenへ遷移"""
+        screen = TemplateSaveWizardScreen(subproject_id=subproject_id)
+        self.push_screen(screen)
+
+    def push_apply_wizard(self, template_id: int = None) -> None:
+        """TemplateApplyWizardScreenへ遷移"""
+        screen = TemplateApplyWizardScreen(template_id=template_id)
         self.push_screen(screen)
 
     def action_quit(self) -> None:

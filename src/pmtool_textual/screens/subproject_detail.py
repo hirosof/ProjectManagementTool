@@ -77,9 +77,7 @@ class SubProjectDetailScreen(BaseScreen):
 
     def action_save_template(self) -> None:
         """Sキー: Template Save Wizardへ遷移"""
-        # TODO: P5-11でTemplateSaveWizardを実装後、遷移処理を追加
-        # self.app.push_save_wizard(subproject_id=self.subproject_id)
-        pass
+        self.app.push_save_wizard(subproject_id=self.subproject_id)
 
     def action_back(self) -> None:
         """ESCキーで一つ前の画面に戻る"""
