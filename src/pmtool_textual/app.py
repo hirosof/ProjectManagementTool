@@ -8,6 +8,7 @@ from .screens.template_hub import TemplateHubScreen
 from .screens.template_save_wizard import TemplateSaveWizardScreen
 from .screens.template_apply_wizard import TemplateApplyWizardScreen
 from .screens.settings import SettingsScreen
+from .screens.setup import SetupScreen
 from .utils.db_manager import DBManager
 
 
@@ -29,7 +30,12 @@ class PMToolApp(App):
 
     def on_mount(self) -> None:
         """アプリケーション起動時の処理"""
-        self.push_screen("home")
+        # DB未作成時はSetup画面へ、作成済みならHome画面へ
+        if not self.db_manager.is_db_exists():
+            screen = SetupScreen()
+            self.push_screen(screen)
+        else:
+            self.push_screen("home")
 
     def push_project_detail(self, project_id: int) -> None:
         """ProjectDetailScreenへ遷移"""
