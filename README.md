@@ -6,19 +6,19 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 
 ## プロジェクトステータス
 
-**現在のフェーズ:** Phase 5 実装中（Group 5実装途中）
+**現在のフェーズ:** Phase 5 完了（全16タスク完了、カバレッジ81.38%達成）
 
 - ✅ Phase 0: 基盤構築（DB設計、初期化スクリプト）
 - ✅ Phase 1: コア機能実装（CRUD、依存関係管理、ステータス管理、削除制御）
 - ✅ Phase 2: CLIインターフェース実装（Rich表示、エラーハンドリング）
 - ✅ Phase 3: 拡張機能（P0完了：UX改善、エラーメッセージ強化）
 - ✅ Phase 4: 品質・安定性向上（テストカバレッジ80%、ユーザードキュメント整備、テンプレート仕様書作成）
-- 🔨 Phase 5: Textual UI + テンプレート機能（Group 5実装途中）
+- ✅ Phase 5: Textual UI + テンプレート機能（全16タスク完了、カバレッジ81.38%達成）
   - ✅ Group 1: 基盤整備（P5-01～P5-03）
   - ✅ Group 2: テンプレート機能BL層（P5-04～P5-06）
   - ✅ Group 3: 基本UI（P5-07～P5-09）
   - ✅ Group 4: テンプレート機能UI（P5-10～P5-12）
-  - 🔨 Group 5: 補助機能・品質向上（P5-13, P5-14完了、P5-15実装途中、P5-16未着手）
+  - ✅ Group 5: 補助機能・品質向上（P5-13～P5-16）
 
 ## 主要機能
 
@@ -62,13 +62,35 @@ ProjectManagementTool (Claude Code、ChatGPT使用)
 - **親文脈表示:** 依存関係一覧でのproject_id/task_id併記
 - **対話的入力:** 未指定項目の自動プロンプト
 
+### Phase 5: Textual UI + テンプレート機能
+
+#### Textual UI（7画面構成）
+- **Home画面:** Project一覧表示（DataTable）
+- **ProjectDetail画面:** 4階層ツリー表示
+- **SubProjectDetail画面:** Task/SubTaskツリー表示
+- **TemplateHub画面:** テンプレート一覧・管理
+- **TemplateSaveWizard:** テンプレート保存ウィザード（4ステップ）
+- **TemplateApplyWizard:** テンプレート適用ウィザード（4ステップ、dry-runプレビュー）
+- **Settings画面:** DBパス表示、バックアップ案内
+
+#### テンプレート機能
+- **テンプレート保存:** SubProjectをテンプレートとして保存（Task/SubTask/依存関係を含む）
+- **テンプレート適用:** テンプレートから新SubProjectを作成
+- **dry-runプレビュー:** 適用前のプレビュー（件数サマリ、Task一覧）
+- **外部依存検出:** SubProject外への依存関係を警告
+- **テンプレート管理:** 一覧表示、詳細表示、削除
+
+#### 初回セットアップ支援
+- **DB未作成時の自動導線:** Setup画面による自動初期化
+- **固定パス:** `data/pmtool.db` で自動作成
+
 ## 技術スタック
 
 - **言語:** Python 3.10+
 - **データベース:** SQLite3
-- **UI/UX:** Rich (表示), prompt_toolkit (入力)
+- **UI/UX:** Rich (表示), prompt_toolkit (入力), Textual 7.3.0 (TUI)
 - **開発ツール:** Claude Code、ChatGPT
-- **テスト:** pytest、pytest-cov（**カバレッジ80.08%達成**）、検証スクリプト
+- **テスト:** pytest、pytest-cov（**カバレッジ81.38%達成**）、検証スクリプト
 
 ## プロジェクト構造
 
